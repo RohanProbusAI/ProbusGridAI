@@ -1,0 +1,1527 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payout Grid Processor (Flask)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Simple transition for showing/hiding steps */
+        .step { display: none; }
+        .step.active { display: block; }
+
+        /* Custom styles for file dropzone */
+        .dropzone-active {
+            border-color: #2563eb;
+            background-color: #eff6ff;
+        }
+        /* Simple loader */
+        .loader {
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Ensure buttons in sheet list don't overflow */
+        #sheet-list button {
+             overflow: hidden;
+             text-overflow: ellipsis;
+             white-space: nowrap;
+        }
+
+
+        /* Image modal styles */
+.image-modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.9);
+}
+.image-modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.image-modal img {
+    max-width: 90%;
+    max-height: 90%;
+    object-fit: contain;
+}
+.image-modal-close {
+    position: absolute;
+    top: 20px;
+    right: 40px;
+    color: #fff;
+    font-size: 40px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+        /* --- NEW STYLES FOR CLICKABLE PILLS --- */
+
+        .header-pill {
+            cursor: pointer;
+            transition: background-color 0.1s ease-in-out, color 0.1s ease-in-out;
+            border: 1px solid #e5e7eb; /* default border */
+        }
+        .header-pill.selected-pill {
+            background-color: #2563eb; /* blue-600 */
+            color: #ffffff; /* white */
+            border-color: #1d4ed8; /* blue-700 */
+        }
+        /* Style the (col_X) code tag differently when selected */
+        .header-pill.selected-pill code {
+            color: #dbeafe; /* light blue for the (col_X) text */
+        }
+        /* --- END NEW STYLES --- */
+        kbd {
+    display: inline-block;
+    padding: 2px 4px;
+    font-size: 11px;
+    line-height: 10px;
+    color: #24292e;
+    vertical-align: middle;
+    background-color: #fafbfc;
+    border: solid 1px #d1d5da;
+    border-bottom-color: #959da5;
+    border-radius: 3px;
+    box-shadow: inset 0 -1px 0 #959da5;
+}
+
+    </style>
+</head>
+<body class="h-full font-sans text-gray-800">
+    <div class="min-h-full flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-2xl w-full space-y-8 bg-white p-8 sm:p-10 rounded-2xl shadow-xl">
+
+            <div>
+                <svg class="mx-auto h-12 w-auto text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-1.621-.87a3 3 0 01-.879-2.122v-1.007M15 9.75a3 3 0 11-6 0 3 3 0 016 0zM3 9.75a8.25 8.25 0 0110.607-7.917l.94-1.88a1.125 1.125 0 012.11.528l-.228.455a11.25 11.25 0 014.242 1.583l.807-1.81a1.125 1.125 0 012.22.44l-.315.7a11.25 11.25 0 012.563 4.486l.22.44a1.125 1.125 0 01-2.008.918l-.51-1.02a6.75 6.75 0 00-6.19-3.976l-.21.021a6.75 6.75 0 00-6.19 3.976l-.51 1.02a1.125 1.125 0 01-2.007-.918l.22-.44A11.25 11.25 0 013 9.75z" />
+                </svg>
+
+                <h2 class="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
+                    Payout Grid Processor
+                </h2>
+                <p class="mt-2 text-center text-sm text-gray-600">
+                    Upload your file to begin extraction and processing.
+                </p>
+            </div>
+
+            <div id="error-message" class="hidden p-4 rounded-md bg-red-50 border border-red-200">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-red-800">Processing Error</h3>
+                        <div class="mt-2 text-sm text-red-700">
+                            <p id="error-text"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+             <div id="info-message" class="hidden p-4 rounded-md bg-blue-50 border border-blue-200">
+                <div class="flex">
+                    <div class="flex-shrink-0">
+                         <svg class="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd" />
+                          </svg>
+                    </div>
+                    <div class="ml-3 flex-1 md:flex md:justify-between">
+                         <p class="text-sm text-blue-700" id="info-text"></p>
+                    </div>
+                </div>
+            </div>
+
+
+            <div id="upload-step" class="step active">
+                <form id="upload-form" class="space-y-6">
+                    <div>
+                        <label for="file-upload" class="block text-sm font-medium text-gray-700">Upload File</label>
+                        <div id="dropzone" class="mt-1 flex justify-center rounded-md border-2 border-dashed border-gray-300 px-6 pt-5 pb-6 transition-all">
+                            <div class="space-y-1 text-center">
+                                <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                                    <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8a4 4 0 01-4 4H28m0-28v8a4 4 0 01-4 4H12m28 8l-12-12-12 12" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                                <div class="flex text-sm text-gray-600 justify-center">
+                                    <label for="file-upload" class="relative cursor-pointer rounded-md bg-white font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-blue-500 focus-within:ring-offset-2">
+                                        <span>Upload a file</span>
+                                        <input id="file-upload" name="file" type="file" class="sr-only">
+                                    </label>
+                                    <p class="pl-1 filename-display">or drag and drop</p>
+                                </div>
+                                <p class="text-xs text-gray-500">Excel, PDF, JSON, PNG, JPG, GIF, WebP</p>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="upload-btn" type="submit" class="group relative flex w-full justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-gray-400">
+                        Upload and Process
+                    </button>
+                </form>
+            </div>
+
+            <!-- NEW STEP: Processor Selection (for Bajaj) -->
+<div id="processor-selection-step" class="step">
+    <div class="space-y-6">
+        <div>
+            <h3 class="text-lg font-medium leading-6 text-gray-900">Select Processing Method</h3>
+            <p class="mt-1 text-sm text-gray-500">Company: <strong id="processor-company"></strong></p>
+            <p class="mt-1 text-sm text-gray-500">File: <span id="processor-filename" class="font-mono text-xs"></span></p>
+        </div>
+
+        <div id="processor-options" class="space-y-4">
+            <!-- Processor cards will be populated here -->
+        </div>
+
+        <button id="processor-cancel-btn" type="button" class="group relative flex w-full justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+            Cancel (Upload Different File)
+        </button>
+    </div>
+</div>
+
+            <div id="loading-step" class="step">
+                <div class="flex flex-col items-center justify-center space-y-4 py-8">
+                    <div class="loader"></div>
+                    <p id="loading-text" class="text-lg font-medium text-gray-700">Processing file, please wait...</p>
+                    <p class="text-sm text-gray-500">AI extraction or file conversion can take a moment.</p>
+                </div>
+            </div>
+
+            <div id="company-step" class="step">
+                <form id="company-form" class="space-y-6">
+                    <div>
+                        <h3 class="text-lg font-medium leading-6 text-gray-900">Excel/JSON File Detected</h3>
+                        <p class="mt-1 text-sm text-gray-500">Please provide the company name for processing.</p>
+                        <p class="mt-1 text-xs text-gray-500">File: <span id="company-step-filename" class="font-mono"></span></p>
+                    </div>
+                    <div>
+                        <label for="company-name" class="block text-sm font-medium text-gray-700">Company Name</label>
+                        <div class="mt-1">
+                            <input id="company-name" name="company-name" type="text" required class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="e.g., Liberty">
+                        </div>
+                    </div>
+                    <button type="submit" class="group relative flex w-full justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                        Next: Select Sheets
+                    </button>
+                </form>
+            </div>
+
+            <div id="sheet-selection-step" class="step">
+                <div class="space-y-4">
+                    <div>
+                        <h3 class="text-lg font-medium leading-6 text-gray-900">Select a Sheet to Process</h3>
+                        <p class="mt-1 text-sm text-gray-500">Company: <strong id="sheet-select-company"></strong></p>
+                        <p class="mt-1 text-sm text-gray-500">You can process one sheet at a time. Processed sheets will appear below.</p>
+                    </div>
+                    <div id="sheet-list" class="space-y-2 max-h-60 overflow-y-auto rounded-md border border-gray-200 p-2 bg-gray-50">
+                        </div>
+                    <div id="wizard-results-area" class="space-y-3 pt-4 border-t border-gray-200">
+                        <h4 class="text-base font-medium text-gray-800">Processed Sheets:</h4>
+                         <div id="wizard-download-list" class="space-y-3">
+                             </div>
+                    </div>
+                    <button id="restart-button" type="button" class="group relative flex w-full justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                        Start Over with New File
+                    </button>
+                </div>
+            </div>
+
+            <!-- FOR BAJAJ MANUAL -->
+            <!-- NEW STEP: Segment Confirmation for Bajaj Manual -->
+            <div id="segment-confirmation-step" class="step">
+                <div class="space-y-6">
+                    <div>
+                        <h3 class="text-lg font-medium leading-6 text-gray-900">Confirm Segment for: <span id="confirm-sheet-name" class="font-bold text-blue-600"></span></h3>
+                        <p class="mt-1 text-sm text-gray-500">Auto-detected segment from worksheet name</p>
+                    </div>
+
+                    <div class="bg-blue-50 border border-blue-200 rounded-md p-4">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clip-rule="evenodd"/>
+                                </svg>
+                            </div>
+                            <div class="ml-3 flex-1">
+                                <h3 class="text-sm font-medium text-blue-800">Detected Segment</h3>
+                                <div class="mt-2 text-sm text-blue-700">
+                                    <p><strong id="detected-segment-text"></strong> (Confidence: <span id="confidence-level"></span>)</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Choose an option:</label>
+                        <div class="space-y-2">
+                            <button id="use-detected-segment" type="button" class="w-full text-left px-4 py-3 bg-white border-2 border-gray-300 rounded-md hover:border-blue-500 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <div class="font-medium text-gray-900">✓ Use detected segment</div>
+                                <div class="text-sm text-gray-500 mt-1">Accept "<span id="use-detected-segment-name"></span>"</div>
+                            </button>
+                            
+                            <button id="enter-different-segment" type="button" class="w-full text-left px-4 py-3 bg-white border-2 border-gray-300 rounded-md hover:border-blue-500 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <div class="font-medium text-gray-900">✏️ Enter a different segment</div>
+                                <div class="text-sm text-gray-500 mt-1">Manually specify the segment</div>
+                            </button>
+                            
+                            <button id="skip-worksheet" type="button" class="w-full text-left px-4 py-3 bg-white border-2 border-gray-300 rounded-md hover:border-red-500 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500">
+                                <div class="font-medium text-gray-900">⏭️ Skip this worksheet</div>
+                                <div class="text-sm text-gray-500 mt-1">Don't process this sheet</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="manual-segment-input" class="hidden">
+                        <label for="manual-segment-field" class="block text-sm font-medium text-gray-700">Enter Segment</label>
+                        <input id="manual-segment-field" type="text" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="e.g., TW, PVT CAR, CV, MISD">
+                        <p class="mt-2 text-xs text-gray-500">Available: TW (SAOD+COMP, TP, 1+5), PVT CAR (COMP+SAOD, TP), CV, BUS, TAXI, MISD</p>
+                        <button id="confirm-manual-segment" type="button" class="mt-3 w-full rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            Confirm Segment
+                        </button>
+                    </div>
+
+                    <div id="policy-type-question" class="hidden bg-yellow-50 border border-yellow-200 rounded-md p-4">
+                        <h4 class="text-sm font-medium text-yellow-800 mb-3">Policy Type Required</h4>
+                        <p class="text-sm text-yellow-700 mb-3">Segment detected as: <strong id="segment-needs-policy"></strong></p>
+                        <p class="text-xs text-yellow-600 mb-3">Please specify policy type:</p>
+                        <div class="space-y-2">
+                            <button class="policy-type-btn w-full text-left px-3 py-2 bg-white border border-yellow-300 rounded hover:bg-yellow-100" data-policy="TP">
+                                <strong>TP</strong> - Third Party / SATP
+                            </button>
+                            <button class="policy-type-btn w-full text-left px-3 py-2 bg-white border border-yellow-300 rounded hover:bg-yellow-100" data-policy="COMP">
+                                <strong>COMP</strong> - Comprehensive
+                            </button>
+                            <button class="policy-type-btn w-full text-left px-3 py-2 bg-white border border-yellow-300 rounded hover:bg-yellow-100" data-policy="SAOD">
+                                <strong>SAOD</strong> - Stand Alone Own Damage
+                            </button>
+                            <button class="policy-type-btn w-full text-left px-3 py-2 bg-white border border-yellow-300 rounded hover:bg-yellow-100" data-policy="COMP+SAOD">
+                                <strong>COMP + SAOD</strong>
+                            </button>
+                            <button class="policy-type-btn w-full text-left px-3 py-2 bg-white border border-yellow-300 rounded hover:bg-yellow-100" data-policy="1+5">
+                                <strong>1+5</strong> - For TW New/Grid
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- ENDS -->
+
+            <div id="sheet-wizard-step" class="step">
+                <form id="sheet-wizard-form" class="space-y-6">
+                    <div>
+                        <h3 class="text-lg font-medium leading-6 text-gray-900">Process Sheet: <span id="wizard-sheet-name" class="font-bold text-blue-600"></span></h3>
+                        <p class="mt-1 text-sm text-gray-500">Confirm the LOB/Segment and select the pay-in/location columns.</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Sheet Headers Preview (<span id="wizard-record-count">0</span> records)</label>
+                        <p class="mt-1 text-xs text-gray-500">Click headers below to add/remove them from the Pay-in list.</p>
+                        <div id="wizard-headers" class="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded-md border border-gray-200 overflow-x-auto whitespace-nowrap">
+                            </div>
+                    </div>
+
+                    <div>
+                         <label for="manual-segment" class="block text-sm font-medium text-gray-700">LOB / Segment (Line of Business)</label>
+                        <input id="manual-segment" type="text" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="e.g., CV, TW, PVT CAR, MISD">
+                         <p class="mt-1 text-xs text-gray-500">Enter the main business line. Specific segments will be inferred from rows/columns where possible.</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Policy Type Source</label>
+                        <div class="mt-2 space-y-2">
+                            <label class="inline-flex items-center mr-4">
+                                <input type="radio" name="policy-type-source" value="auto" class="mr-2" checked>
+                                <span class="text-sm">Auto-detect from headers/segment</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="policy-type-source" value="column" class="mr-2">
+                                <span class="text-sm">From a column</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="policy-column-input" class="mt-4 hidden">
+                        <label for="policy-col" class="block text-sm font-medium text-gray-700">Policy Type Column</label>
+                        <input id="policy-col" type="text" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="e.g., col_0, Policy Type">
+                        <p class="mt-1 text-xs text-gray-500">Column containing policy types like SAOD, TP, COMP</p>
+                    </div>
+
+                    <div>
+                        <label for="payin-cols" class="block text-sm font-medium text-gray-700">Pay-in Column(s) Header Text or <code class="text-xs">col_X</code></label>
+                        <input id="payin-cols" type="text" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="e.g., TP, COMP, col_1, col_4-col_72 (comma-separated)">
+                        <p class="mt-1 text-xs text-gray-500">
+                            Click pills above, type header names, or use ranges like <code class="text-xs">col_4-col_72</code>. 
+                            Press <kbd class="px-1 py-0.5 text-xs bg-gray-200 rounded">Enter</kbd> after typing ranges to apply.
+                        </p>
+                        <button id="apply-range-btn" type="button" class="mt-2 text-xs text-blue-600 hover:text-blue-800 font-medium">
+                            Apply Range/Selection
+                        </button>
+                    </div>
+
+                    <!-- <div>
+                        <label for="location-col" class="block text-sm font-medium text-gray-700">Location / Segment Row Header Text or <code class="text-xs">col_X</code> (Optional)</label>
+                        <input id="location-col" type="text" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="e.g., Location, RTO, City, Segment, col_0">
+                        <p class="mt-1 text-xs text-gray-500">Specify if locations or specific segments are listed row-by-row in a column.</p>
+                    </div> -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Location Type</label>
+                        <div class="mt-2 space-y-2">
+                            <label class="inline-flex items-center mr-4">
+                                <input type="radio" name="location-type" value="column" class="mr-2" checked>
+                                <span class="text-sm">Column (vertical list)</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="location-type" value="row" class="mr-2">
+                                <span class="text-sm">Row (horizontal headers)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="location-column-input" class="mt-4">
+                        <label for="location-col" class="block text-sm font-medium text-gray-700">Location Column</label>
+                        <input id="location-col" type="text" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="e.g., col_0, Location">
+                        <p class="mt-1 text-xs text-gray-500">Click header pills above or type manually</p>
+                    </div>
+
+                    <div id="location-row-input" class="mt-4 hidden">
+                        <label class="block text-sm font-medium text-gray-700">Select Location Row (click to choose)</label>
+                        <div id="row-preview" class="mt-2 space-y-1 max-h-40 overflow-y-auto bg-gray-50 p-2 rounded border">
+                            <!-- Rows will be populated here -->
+                        </div>
+                    </div>
+
+                    <div class="flex space-x-3">
+                        <button id="wizard-cancel-btn" type="button" class="group relative flex w-1/2 justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                            Cancel (Back to Sheets)
+                        </button>
+                        <button id="wizard-submit-btn" type="submit" class="group relative flex w-1/2 justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50">
+                            Process This Sheet
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="results-step" class="step">
+                <div class="space-y-4">
+                    <div>
+                        <h3 class="text-lg font-medium leading-6 text-gray-900">Processing Complete</h3>
+                        <p class="mt-1 text-sm text-gray-500">Your file(s) have been processed. Download them below.</p>
+                    </div>
+                    <div id="download-list" class="space-y-3">
+                        </div>
+                    <button id="restart-button-results" type="button" class="group relative flex w-full justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                        Process Another File
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- State Management ---
+        let currentStep = 'upload';
+        let wizardState = {
+            companyName: '',
+            tempJsonId: '',
+            sheetsInfo: [],
+            processedSheets: new Set()
+        };
+        let currentSheet = {};
+        let bajajState = {
+    uploadPath: '',
+    filename: '',
+    selectedProcessor: ''
+};
+
+        
+        // ** NEW: State for selected pay-in keys **
+        // ** NEW: State for selected pay-in keys **
+        let selectedPayinKeys = new Set();
+
+
+        // --- DOM Elements ---
+        const errorMessage = document.getElementById('error-message');
+        const errorText = document.getElementById('error-text');
+        const infoMessage = document.getElementById('info-message');
+        const infoText = document.getElementById('info-text');
+        const loadingText = document.getElementById('loading-text');
+        
+        const steps = {
+            'upload': document.getElementById('upload-step'),
+            'loading': document.getElementById('loading-step'),
+            'processor-selection': document.getElementById('processor-selection-step'),
+            'company': document.getElementById('company-step'),
+            'sheet-selection': document.getElementById('sheet-selection-step'),
+            'segment-confirmation': document.getElementById('segment-confirmation-step'), // ADD THIS
+            'sheet-wizard': document.getElementById('sheet-wizard-step'),
+            'results': document.getElementById('results-step'),
+        };
+        
+        // --- UI Control ---
+        function showStep(stepId) {
+            console.log("Showing step:", stepId);
+            currentStep = stepId;
+            Object.values(steps).forEach(step => step.classList.remove('active'));
+            if (steps[stepId]) {
+                steps[stepId].classList.add('active');
+            }
+            hideError();
+            hideInfo();
+        }
+
+        function showError(message) {
+             console.error("Error:", message);
+            errorText.textContent = message;
+            errorMessage.classList.remove('hidden');
+             if (currentStep === 'loading') {
+                 if (wizardState.tempJsonId && wizardState.companyName) {
+                     showStep('sheet-selection');
+                 } else if (wizardState.tempJsonId) {
+                     showStep('company');
+                 } else {
+                     showStep('upload');
+                 }
+             }
+        }
+        function hideError() {
+            errorMessage.classList.add('hidden');
+            errorText.textContent = '';
+        }
+
+        function showInfo(message) {
+            infoText.textContent = message;
+            infoMessage.classList.remove('hidden');
+        }
+         function hideInfo() {
+            infoMessage.classList.add('hidden');
+            infoText.textContent = '';
+        }
+
+        function resetApp() {
+            // NEW: Cleanup session files
+            if (wizardState.tempJsonId) {
+                fetch('/cleanup_session', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        session_id: wizardState.tempJsonId,
+                        cleanup_all: true  // NEW FLAG
+                    })
+                }).catch(err => console.error('Cleanup failed:', err));
+            }
+            
+            // Existing reset logic
+            wizardState = { companyName: '', tempJsonId: '', sheetsInfo: [], processedSheets: new Set() };
+            bajajState = { uploadPath: '', filename: '', selectedProcessor: '' };
+            currentSheet = {};
+            selectedPayinKeys.clear();
+            document.getElementById('upload-form').reset();
+            document.getElementById('company-form').reset();
+            document.getElementById('sheet-wizard-form').reset();
+            document.getElementById('sheet-list').innerHTML = '';
+            document.getElementById('download-list').innerHTML = '';
+            document.getElementById('wizard-download-list').innerHTML = '';
+            document.getElementById('processor-options').innerHTML = '';
+            document.querySelector('.filename-display').textContent = 'or drag and drop';
+            showStep('upload');
+        }
+
+        // --- Event Listeners ---
+        document.getElementById('restart-button').addEventListener('click', resetApp);
+        document.getElementById('restart-button-results').addEventListener('click', resetApp);
+
+        // --- Step 1: Upload ---
+        const uploadForm = document.getElementById('upload-form');
+        const fileInput = document.getElementById('file-upload');
+        const dropzone = document.getElementById('dropzone');
+        const filenameDisplay = dropzone.querySelector('.filename-display');
+
+        uploadForm.addEventListener('submit', handleFileUpload);
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                filenameDisplay.textContent = fileInput.files[0].name;
+                filenameDisplay.classList.add('font-mono', 'text-blue-700');
+            } else {
+                 filenameDisplay.textContent = 'or drag and drop';
+                 filenameDisplay.classList.remove('font-mono', 'text-blue-700');
+            }
+        });
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, preventDefaults, false);
+        });
+        function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, () => dropzone.classList.add('dropzone-active'), false);
+        });
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropzone.addEventListener(eventName, () => dropzone.classList.remove('dropzone-active'), false);
+        });
+        dropzone.addEventListener('drop', (e) => {
+            fileInput.files = e.dataTransfer.files;
+            fileInput.dispatchEvent(new Event('change'));
+        }, false);
+
+        // async function handleFileUpload(e) {
+        //     e.preventDefault();
+        //     if (fileInput.files.length === 0) {
+        //         showError("Please select a file to upload.");
+        //         return;
+        //     }
+        //     const file = fileInput.files[0];
+        //     const formData = new FormData();
+        //     formData.append('file', file);
+        //     loadingText.textContent = "Uploading and processing file...";
+        //     showStep('loading');
+
+        //     try {
+        //         const response = await fetch('/upload', {
+        //             method: 'POST',
+        //             body: formData,
+        //         });
+        //         if (!response.ok) {
+        //              let errorMsg = `Server error: ${response.status} ${response.statusText}`;
+        //              try {
+        //                  const errData = await response.json();
+        //                  errorMsg = errData.detail || JSON.stringify(errData);
+        //              } catch (jsonErr) {
+        //                  try { errorMsg = await response.text(); } catch (textErr) {}
+        //              }
+        //              throw new Error(errorMsg);
+        //          }
+        //         const data = await response.json();
+        //         console.log("Upload Response:", data);
+        //         if (data.status === 'success_single_file') {
+        //             addResults(data.results, 'download-list');
+        //             showStep('results');
+        //         }
+        //         else if (data.status === 'success_wizard_start') {
+        //             wizardState.tempJsonId = data.temp_json_id;
+        //             wizardState.processedSheets = new Set();
+        //             document.getElementById('company-step-filename').textContent = data.filename;
+        //             document.getElementById('company-name').value = data.suggested_company || '';
+        //             document.getElementById('wizard-download-list').innerHTML = '';
+        //             showStep('company');
+        //         } else {
+        //             throw new Error(data.detail || data.error || 'Unexpected response status from server');
+        //         }
+        //     } catch (err) {
+        //          console.error("Upload failed:", err);
+        //         showError(`Upload failed: ${err.message}`);
+        //         showStep('upload');
+        //     }
+        // }
+        async function handleFileUpload(e) {
+            e.preventDefault();
+            if (fileInput.files.length === 0) {
+                showError("Please select a file to upload.");
+                return;
+            }
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+            loadingText.textContent = "Uploading and processing file...";
+            showStep('loading');
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData,
+                });
+                if (!response.ok) {
+                    let errorMsg = `Server error: ${response.status} ${response.statusText}`;
+                    try {
+                        const errData = await response.json();
+                        errorMsg = errData.detail || JSON.stringify(errData);
+                    } catch (jsonErr) {
+                        try { errorMsg = await response.text(); } catch (textErr) {}
+                    }
+                    throw new Error(errorMsg);
+                }
+                const data = await response.json();
+                console.log("Upload Response:", data);
+                
+                // **NEW: Handle processor selection for Bajaj**
+                if (data.status === 'processor_selection_required') {
+                    bajajState.uploadPath = data.upload_path;
+                    bajajState.filename = data.filename;
+                    document.getElementById('processor-company').textContent = data.company;
+                    document.getElementById('processor-filename').textContent = data.filename;
+                    populateProcessorOptions(data.processors);
+                    showStep('processor-selection');
+                }
+                else if (data.status === 'success_single_file') {
+                    addResults(data.results, 'download-list');
+                    showStep('results');
+                }
+                else if (data.status === 'success_wizard_start') {
+                    wizardState.tempJsonId = data.temp_json_id;
+                    wizardState.processedSheets = new Set();
+                    document.getElementById('company-step-filename').textContent = data.filename;
+                    document.getElementById('company-name').value = data.suggested_company || '';
+                    document.getElementById('wizard-download-list').innerHTML = '';
+                    showStep('company');
+                } else {
+                    throw new Error(data.detail || data.error || 'Unexpected response status from server');
+                }
+            } catch (err) {
+                console.error("Upload failed:", err);
+                showError(`Upload failed: ${err.message}`);
+                showStep('upload');
+            }
+        }
+
+
+        // --- Step 3: Company Form ---
+        document.getElementById('company-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const companyName = document.getElementById('company-name').value;
+            if (!wizardState.tempJsonId) {
+                showError("Temporary file ID missing. Please re-upload the file.");
+                showStep('upload');
+                return;
+            }
+            if (!companyName) {
+                showError("Company name is required.");
+                return;
+            }
+            
+            loadingText.textContent = "Loading workbook sheets...";
+            showStep('loading');
+
+            try {
+                const response = await fetch('/start_excel_wizard', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        company_name: companyName,
+                        temp_json_id: wizardState.tempJsonId
+                    }),
+                });
+                
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.detail || JSON.stringify(errData));
+                }
+                
+                const data = await response.json();
+                
+                // **NEW: Handle Zuno detection**
+                if (data.status === 'success_zuno_detected') {
+                    wizardState.companyName = data.company_name;
+                    loadingText.textContent = "Processing Zuno file...";
+                    
+                    // Process immediately
+                    const processResponse = await fetch('/process_zuno_sheet', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            temp_json_id: wizardState.tempJsonId,
+                            sheet_index: 0
+                        })
+                    });
+                    
+                    if (!processResponse.ok) {
+                        const errData = await processResponse.json();
+                        throw new Error(errData.detail || 'Zuno processing failed');
+                    }
+                    
+                    const processData = await processResponse.json();
+                    
+                    if (processData.status === 'success_sheet_processed') {
+                        addResults([processData.result], 'download-list');
+                        showStep('results');
+                    } else {
+                        showInfo('Zuno file processed but no entries found.');
+                        showStep('results');
+                    }
+                    return;
+                }
+
+                else if (data.status === 'success_tata_detected') {
+                    wizardState.companyName = data.company_name;
+                    loadingText.textContent = "Processing Tata file...";
+                    
+                    // Process immediately
+                    fetch('/process_tata_sheet', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            temp_json_id: wizardState.tempJsonId
+                        })
+                    })
+                    .then(res => {
+                        if (!res.ok) throw new Error('Processing failed');
+                        return res.json();
+                    })
+                    .then(processData => {
+                        if (processData.status === 'success_sheet_processed') {
+                            addResults([processData.result], 'download-list');
+                            showStep('results');
+                        } else {
+                            showInfo('Tata file processed but no entries found.');
+                            showStep('results');
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Tata processing error:', err);
+                        showError(`Tata processing failed: ${err.message}`);
+                        showStep('company');
+                    });
+                    return;
+                }
+                                
+                // Liberty flow
+                if (data.status === 'success_sheets_loaded') {
+                    wizardState.companyName = data.company_name;
+                    wizardState.sheetsInfo = data.sheets_info;
+                    document.getElementById('sheet-select-company').textContent = wizardState.companyName;
+                    populateSheetList(wizardState.sheetsInfo);
+                    showStep('sheet-selection');
+                } else {
+                    throw new Error(data.detail || 'Unexpected response loading sheets');
+                }
+            } catch (err) {
+                console.error("Processing failed:", err);
+                showError(`Processing failed: ${err.message}`);
+                showStep('company');
+            }
+        });
+
+        // --- Step 4: Sheet Selection ---
+        function populateSheetList(sheets) {
+            const listEl = document.getElementById('sheet-list');
+            listEl.innerHTML = '';
+            if (!sheets || sheets.length === 0) {
+                listEl.innerHTML = '<p class="text-sm text-gray-500 text-center">No sheets found in this file.</p>';
+                return;
+            }
+            sheets.forEach(sheet => {
+                 const isProcessed = wizardState.processedSheets.has(sheet.index);
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `w-full text-left p-3 rounded-md border ${
+                     isProcessed
+                         ? 'bg-green-100 border-green-300 text-green-800 cursor-not-allowed'
+                         : 'border-gray-300 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500'
+                 }`;
+                button.setAttribute('title', sheet.name);
+                button.innerHTML = `
+                     <div class="flex justify-between items-center">
+                         <span class="truncate pr-2">${sheet.name}</span>
+                         ${isProcessed
+                             ? '<span class="text-xs font-medium bg-green-200 text-green-900 px-2 py-0.5 rounded-full flex-shrink-0">Processed</span>'
+                             : `<span class="text-xs text-gray-500 flex-shrink-0">${sheet.record_count} records</span>`
+                         }
+                     </div>`;
+                 button.disabled = isProcessed;
+                
+                if (!isProcessed) {
+                    button.onclick = () => {
+                        currentSheet = sheet;
+                        
+                        // **NEW: For Bajaj Manual, show segment confirmation first**
+                        if (bajajState.selectedProcessor === 'bajaj_manual') {
+                            // Call backend to detect segment
+                            fetch('/detect_bajaj_segment', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    temp_json_id: wizardState.tempJsonId,
+                                    sheet_index: sheet.index
+                                })
+                            })
+                            .then(res => res.json())
+                            .then(data => {
+                                showSegmentConfirmation(sheet, data.detected_segment, data.confidence);
+                            })
+                            .catch(err => {
+                                console.error('Segment detection failed:', err);
+                                // Fallback to direct wizard
+                                showSheetWizard(sheet);
+                            });
+                        } else {
+                            // Liberty processor - direct to wizard
+                            showSheetWizard(sheet);
+                        }
+                    };
+                }
+                listEl.appendChild(button);
+            });
+        }
+
+        // --- Step 5: Sheet Wizard ---
+        function showSheetWizard(sheet) {
+        // ** NEW: Reset selection state for new wizard view **
+        selectedPayinKeys.clear();
+        document.getElementById('sheet-wizard-form').reset(); // Reset form (clears inputs)
+        
+        document.getElementById('wizard-sheet-name').textContent = sheet.name;
+        document.getElementById('wizard-record-count').textContent = sheet.record_count;
+        const headersEl = document.getElementById('wizard-headers');
+        
+        // ** MODIFIED: Add 'header-pill' class and 'data-key' attribute **
+        headersEl.innerHTML = sheet.headers.map(h =>
+            `<span class="header-pill inline-block bg-gray-200 text-gray-700 px-2 py-0.5 rounded mr-1 mb-1 border border-gray-300" data-key="${h.key}">${h.value != null ? h.value : '(Empty)'} <code class="text-gray-500 text-xs">(${h.key})</code></span>`
+        ).join('');
+
+        // ** NEW: Populate row preview for location selection **
+        const rowPreview = document.getElementById('row-preview');
+        rowPreview.innerHTML = sheet.headers.slice(0, 10).map((h, idx) => 
+            `<div class="row-pill cursor-pointer hover:bg-blue-50 p-2 rounded border border-gray-200" data-row-index="${idx}">
+                <span class="text-xs text-gray-600">Row ${idx}:</span> 
+                <span class="text-sm font-mono">${h.value || '(Empty)'}</span>
+            </div>`
+        ).join('');
+
+        // ** NEW: Add radio button listener for location type **
+        document.querySelectorAll('input[name="location-type"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                const colInput = document.getElementById('location-column-input');
+                const rowInput = document.getElementById('location-row-input');
+                if (e.target.value === 'column') {
+                    colInput.classList.remove('hidden');
+                    rowInput.classList.add('hidden');
+                } else {
+                    colInput.classList.add('hidden');
+                    rowInput.classList.remove('hidden');
+                }
+            });
+        });
+
+        // ** NEW: Add radio button listener for policy type source **
+        document.querySelectorAll('input[name="policy-type-source"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                const policyInput = document.getElementById('policy-column-input');
+                if (e.target.value === 'column') {
+                    policyInput.classList.remove('hidden');
+                } else {
+                    policyInput.classList.add('hidden');
+                }
+            });
+        });
+
+        // ** NEW: Add row selection listener **
+        window.selectedLocationRow = null;
+        rowPreview.addEventListener('click', (e) => {
+            const pill = e.target.closest('.row-pill');
+            if (!pill) return;
+            
+            // Deselect previous
+            rowPreview.querySelectorAll('.row-pill').forEach(p => {
+                p.classList.remove('bg-blue-200', 'border-blue-500');
+            });
+            
+            // Select new
+            pill.classList.add('bg-blue-200', 'border-blue-500');
+            window.selectedLocationRow = pill.dataset.rowIndex;
+        });
+
+        // ** NEW: Reset visual state of pills when showing wizard **
+    updatePillsVisualState();
+    
+    document.getElementById('wizard-submit-btn').disabled = false;
+    showStep('sheet-wizard');
+}
+
+        document.getElementById('wizard-cancel-btn').addEventListener('click', () => {
+             populateSheetList(wizardState.sheetsInfo);
+            showStep('sheet-selection');
+        });
+
+        document.getElementById('sheet-wizard-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitButton = document.getElementById('wizard-submit-btn');
+            submitButton.disabled = true;
+
+            if (!wizardState.companyName || !wizardState.tempJsonId || currentSheet.index == null) {
+                showError("Wizard state is incomplete. Please start over by uploading the file again.");
+                showStep('upload');
+                return;
+            }
+
+            const locationType = document.querySelector('input[name="location-type"]:checked').value;
+            const policyTypeSource = document.querySelector('input[name="policy-type-source"]:checked').value;
+            const payload = {
+                sheet_index: currentSheet.index,
+                manual_segment_raw: document.getElementById('manual-segment').value,
+                payin_cols: document.getElementById('payin-cols').value,
+                location_type: locationType,
+                location_col: locationType === 'column' ? document.getElementById('location-col').value : null,
+                location_row: locationType === 'row' ? window.selectedLocationRow : null,
+                policy_type_source: policyTypeSource,
+                policy_col: policyTypeSource === 'column' ? document.getElementById('policy-col').value : null,
+                company_name: wizardState.companyName,
+                temp_json_id: wizardState.tempJsonId
+            };
+            
+            console.log("Submitting Sheet Process:", payload);
+
+            if (!payload.manual_segment_raw || !payload.payin_cols) {
+                showError("LOB/Segment and at least one Pay-in Column are required.");
+                submitButton.disabled = false;
+                return;
+            }
+
+            loadingText.textContent = `Processing sheet "${currentSheet.name}"...`;
+            showStep('loading');
+
+            try {
+                // **NEW: Choose correct endpoint based on processor type**
+                const endpoint = bajajState.selectedProcessor === 'bajaj_manual' 
+                    ? '/process_bajaj_sheet' 
+                    : '/process_sheet';
+                
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.detail || 'Failed to process sheet');
+                }
+                const data = await response.json();
+                console.log("Process Sheet Response:", data);
+
+                if (data.status === 'success_sheet_processed') {
+                    addResults([data.result], 'wizard-download-list');
+                    wizardState.processedSheets.add(currentSheet.index);
+                    showInfo(`Successfully processed sheet "${data.result.sheet_name}". ${data.result.entry_count} entries found.`);
+                } else if (data.status === 'success_sheet_processed_empty') {
+                    wizardState.processedSheets.add(currentSheet.index);
+                    showInfo(`Sheet "${data.result.sheet_name}" processed, but no valid entries were extracted.`);
+                } else {
+                    throw new Error(data.detail || 'Unexpected response after processing sheet');
+                }
+                populateSheetList(wizardState.sheetsInfo);
+                showStep('sheet-selection');
+            } catch (err) {
+                console.error("Sheet processing failed:", err);
+                showError(`Sheet processing failed: ${err.message}`);
+                showStep('sheet-wizard');
+            } finally {
+                if (currentStep === 'sheet-wizard') {
+                    submitButton.disabled = false;
+                }
+            }
+        });
+
+        // --- Step 6: Results ---
+        function addResults(results, targetListId) {
+            const listEl = document.getElementById(targetListId);
+            if (!listEl) return;
+            
+            results.forEach(result => {
+                if (!result || !result.filename) return;
+                
+                const existingEntry = listEl.querySelector(`[data-filename="${result.filename}"]`);
+                if (existingEntry) {
+                    existingEntry.querySelector('.entry-count').textContent = `${result.entry_count} entries processed`;
+                    existingEntry.querySelector('a').href = result.download_url;
+                    return;
+                }
+                
+                const entry = document.createElement('div');
+                entry.className = "flex items-center justify-between p-3 bg-green-50 rounded-md border border-green-200";
+                entry.setAttribute('data-filename', result.filename);
+                entry.innerHTML = `
+                    <div class="flex items-center space-x-3 overflow-hidden mr-2">
+                        <svg class="h-6 w-6 text-green-500 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div class="overflow-hidden">
+                            <p class="text-sm font-medium text-green-800 truncate" title="${result.filename}">${result.filename}</p>
+                            <p class="text-xs text-green-700 entry-count">${result.entry_count} entries processed</p>
+                        </div>
+                    </div>
+                    <a href="${result.download_url}" download class="download-link ml-2 flex-shrink-0 rounded-md bg-white px-3 py-1.5 text-sm font-medium text-green-700 shadow-sm hover:bg-green-100 border border-green-300 whitespace-nowrap">
+                        Download
+                    </a>
+                `;
+                
+                // NEW: Add cleanup on download click
+                const downloadLink = entry.querySelector('.download-link');
+                // downloadLink.addEventListener('click', () => {
+                //     setTimeout(() => {
+                //         fetch('/cleanup_session', {
+                //             method: 'POST',
+                //             headers: {'Content-Type': 'application/json'},
+                //             body: JSON.stringify({session_id: result.filename})
+                //         }).catch(err => console.error('Post-download cleanup failed:', err));
+                //     }, 1000); // Delay to ensure download starts
+                // });
+                
+                listEl.appendChild(entry);
+            });
+        }
+
+        // --- NEW: Processor Selection Functions ---
+        function populateProcessorOptions(processors) {
+            const optionsEl = document.getElementById('processor-options');
+            optionsEl.innerHTML = '';
+            
+            processors.forEach(proc => {
+                const card = document.createElement('div');
+                card.className = `processor-card border-2 rounded-lg p-4 transition-all ${
+                    proc.disabled 
+                        ? 'border-gray-300 bg-gray-50 opacity-60 cursor-not-allowed' 
+                        : 'border-gray-300 hover:border-blue-500 hover:shadow-md'
+                }`;
+                
+                card.innerHTML = `
+                    <div class="flex items-start space-x-4">
+                        <div class="flex-shrink-0">
+                            <div class="h-12 w-12 rounded-lg bg-blue-100 flex items-center justify-center">
+                                <svg class="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    ${proc.id === 'bajaj_ai' 
+                                        ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>'
+                                        : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>'
+                                    }
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between">
+                                <h4 class="text-base font-semibold text-gray-900">${proc.name}</h4>
+                                ${proc.image ? `
+                                    <button type="button" class="view-image-btn ml-2 p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors" data-image="${proc.image}" title="View sample image">
+                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                        </svg>
+                                    </button>
+                                ` : ''}
+                            </div>
+                            <p class="mt-1 text-sm text-gray-600">${proc.description}</p>
+                            
+                            <ul class="mt-3 space-y-1">
+                                ${proc.features.map(feature => `
+                                    <li class="text-xs text-gray-600 flex items-start">
+                                        <svg class="h-4 w-4 text-green-500 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                                        </svg>
+                                        <span>${feature}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                            
+                            ${proc.disabled ? `
+                                <div class="mt-3 text-xs font-medium text-gray-500">
+                                    🚧 Coming Soon
+                                </div>
+                            ` : `
+                                <button type="button" class="mt-3 inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 select-processor-btn" data-processor="${proc.id}">
+                                    Select This Processor →
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                `;
+                
+                if (!proc.disabled) {
+                    const selectBtn = card.querySelector('.select-processor-btn');
+                    selectBtn.addEventListener('click', () => handleProcessorSelection(proc.id));
+                }
+                
+                optionsEl.appendChild(card);
+            });
+            
+            // Add event listeners for view image buttons
+            document.querySelectorAll('.view-image-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showImageModal(btn.dataset.image);
+                });
+            });
+        }
+
+        // Add image modal functions
+        function showImageModal(imageUrl) {
+            let modal = document.getElementById('image-modal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'image-modal';
+                modal.className = 'image-modal';
+                modal.innerHTML = `
+                    <span class="image-modal-close">&times;</span>
+                    <img src="" alt="Processor Preview">
+                `;
+                document.body.appendChild(modal);
+                
+                modal.addEventListener('click', closeImageModal);
+            }
+            
+            modal.querySelector('img').src = imageUrl;
+            modal.classList.add('active');
+        }
+
+        function closeImageModal() {
+            const modal = document.getElementById('image-modal');
+            if (modal) {
+                modal.classList.remove('active');
+            }
+        }
+
+        async function handleProcessorSelection(processorId) {
+            bajajState.selectedProcessor = processorId;
+            
+            if (processorId === 'bajaj_ai') {
+                loadingText.textContent = "Processing with Bajaj AI Processor...";
+                showStep('loading');
+                
+                try {
+                    const response = await fetch('/process_bajaj_ai', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            upload_path: bajajState.uploadPath,
+                            company_name: 'BAJAJ'
+                        }),
+                    });
+                    
+                    if (!response.ok) {
+                        const errData = await response.json();
+                        throw new Error(errData.detail || 'Failed to process with Bajaj AI');
+                    }
+                    
+                    const data = await response.json();
+                    console.log("Bajaj AI Response:", data);
+                    
+                    if (data.status === 'success_single_file') {
+                        addResults(data.results, 'download-list');
+                        showStep('results');
+                    } else if (data.status === 'success_no_data') {
+                        showError('No data was extracted from the file. Please check the file format.');
+                        showStep('processor-selection');
+                    } else {
+                        throw new Error(data.detail || 'Unexpected response from processor');
+                    }
+                } catch (err) {
+                    console.error("Bajaj AI processing failed:", err);
+                    showError(`Processing failed: ${err.message}`);
+                    showStep('processor-selection');
+                }
+                
+            } else if (processorId === 'bajaj_manual') {
+                // NEW: Start Bajaj Manual wizard flow
+                loadingText.textContent = "Loading Bajaj Manual wizard...";
+                showStep('loading');
+                
+                try {
+                    const response = await fetch('/process_bajaj_manual', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            upload_path: bajajState.uploadPath,
+                            company_name: 'BAJAJ'
+                        }),
+                    });
+                    
+                    if (!response.ok) {
+                        const errData = await response.json();
+                        throw new Error(errData.detail || 'Failed to start Bajaj Manual');
+                    }
+                    
+                    const data = await response.json();
+                    console.log("Bajaj Manual Response:", data);
+                    
+                    if (data.status === 'success_wizard_start') {
+                        // Use existing wizard flow
+                        wizardState.tempJsonId = data.temp_json_id;
+                        wizardState.companyName = data.company_name;
+                        wizardState.sheetsInfo = data.sheets_info;
+                        wizardState.processedSheets = new Set();
+                        
+                        document.getElementById('sheet-select-company').textContent = wizardState.companyName;
+                        populateSheetList(wizardState.sheetsInfo);
+                        showStep('sheet-selection');
+                    } else {
+                        throw new Error(data.detail || 'Unexpected response');
+                    }
+                } catch (err) {
+                    console.error("Bajaj Manual failed:", err);
+                    showError(`Processing failed: ${err.message}`);
+                    showStep('processor-selection');
+                }
+            }
+        }
+
+        document.getElementById('processor-cancel-btn').addEventListener('click', resetApp);
+
+
+// --- Initial Load ---
+document.addEventListener('DOMContentLoaded', () => {
+    
+    // ** NEW: Add event listener for the header pills container **
+    document.getElementById('wizard-headers').addEventListener('click', (e) => {
+        // Use .closest() to find the pill, in case user clicks the <code> tag
+        const pill = e.target.closest('.header-pill');
+        if (!pill) return; // Didn't click a pill
+
+        const key = pill.dataset.key;
+        if (!key) return; // Pill has no key
+
+        // Toggle logic
+        if (selectedPayinKeys.has(key)) {
+            selectedPayinKeys.delete(key);
+            pill.classList.remove('selected-pill');
+        } else {
+            selectedPayinKeys.add(key);
+            pill.classList.add('selected-pill');
+        }
+
+        // Update the input field
+        updatePayinInput();
+    });
+
+    // ** NEW: Apply Range Button - Parse ranges and update selection **
+    document.getElementById('apply-range-btn').addEventListener('click', () => {
+        parseAndApplyPayinRanges();
+    });
+
+    // ** NEW: Also apply on Enter key in payin-cols input **
+    document.getElementById('payin-cols').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            parseAndApplyPayinRanges();
+        }
+    });
+
+    showStep('upload');
+});
+
+// ** NEW: Helper function to update input from selectedPayinKeys **
+function updatePayinInput() {
+    const payinInput = document.getElementById('payin-cols');
+    payinInput.value = Array.from(selectedPayinKeys).join(', ');
+}
+
+// ** NEW: Parse ranges like "col_4-col_72" and update selection **
+function parseAndApplyPayinRanges() {
+    const payinInput = document.getElementById('payin-cols');
+    const inputValue = payinInput.value.trim();
+    
+    if (!inputValue) return;
+    
+    // Split by comma
+    const parts = inputValue.split(',').map(p => p.trim()).filter(p => p);
+    
+    // Clear existing selection
+    selectedPayinKeys.clear();
+    
+    parts.forEach(part => {
+        // Check if it's a range (col_X-col_Y)
+        const rangeMatch = part.match(/^col_(\d+)\s*-\s*col_(\d+)$/i);
+        
+        if (rangeMatch) {
+            // It's a range
+            const start = parseInt(rangeMatch[1]);
+            const end = parseInt(rangeMatch[2]);
+            
+            // Add all columns in range
+            for (let i = Math.min(start, end); i <= Math.max(start, end); i++) {
+                selectedPayinKeys.add(`col_${i}`);
+            }
+        } else {
+            // It's a single column or header name
+            selectedPayinKeys.add(part);
+        }
+    });
+    
+    // Update visual selection on pills
+    updatePillsVisualState();
+    
+    // Update input with expanded selection
+    updatePayinInput();
+    
+    showInfo(`Applied selection: ${selectedPayinKeys.size} column(s) selected`);
+}
+
+// ** NEW: Update visual state of pills based on selectedPayinKeys **
+function updatePillsVisualState() {
+    const headersEl = document.getElementById('wizard-headers');
+    const pills = headersEl.querySelectorAll('.header-pill');
+    
+    pills.forEach(pill => {
+        const key = pill.dataset.key;
+        if (selectedPayinKeys.has(key)) {
+            pill.classList.add('selected-pill');
+        } else {
+            pill.classList.remove('selected-pill');
+        }
+    });
+}
+
+// FOR BAJAJ MANUAL
+// --- Segment Confirmation for Bajaj Manual ---
+let segmentConfirmationState = {
+    detectedSegment: '',
+    confidence: '',
+    finalSegment: '',
+    policyType: null
+};
+
+function showSegmentConfirmation(sheet, detectedSegment, confidence) {
+    segmentConfirmationState = {
+        detectedSegment: detectedSegment || 'Unknown',
+        confidence: confidence || 'NONE',
+        finalSegment: '',
+        policyType: null
+    };
+    
+    document.getElementById('confirm-sheet-name').textContent = sheet.name;
+    document.getElementById('detected-segment-text').textContent = detectedSegment || 'No segment detected';
+    document.getElementById('confidence-level').textContent = confidence || 'NONE';
+    document.getElementById('use-detected-segment-name').textContent = detectedSegment || 'Unknown';
+    
+    // Hide/show sections
+    document.getElementById('manual-segment-input').classList.add('hidden');
+    document.getElementById('policy-type-question').classList.add('hidden');
+    
+    showStep('segment-confirmation');
+}
+
+// Button: Use detected segment
+document.getElementById('use-detected-segment').addEventListener('click', () => {
+    segmentConfirmationState.finalSegment = segmentConfirmationState.detectedSegment;
+    checkIfPolicyTypeNeeded();
+});
+
+// Button: Enter different segment
+document.getElementById('enter-different-segment').addEventListener('click', () => {
+    document.getElementById('manual-segment-input').classList.remove('hidden');
+});
+
+// Button: Skip worksheet
+document.getElementById('skip-worksheet').addEventListener('click', () => {
+    wizardState.processedSheets.add(currentSheet.index);
+    populateSheetList(wizardState.sheetsInfo);
+    showStep('sheet-selection');
+});
+
+// Confirm manual segment
+document.getElementById('confirm-manual-segment').addEventListener('click', () => {
+    const manualSegment = document.getElementById('manual-segment-field').value.trim();
+    if (!manualSegment) {
+        showError('Please enter a segment name');
+        return;
+    }
+    segmentConfirmationState.finalSegment = manualSegment;
+    checkIfPolicyTypeNeeded();
+});
+
+// Policy type buttons
+document.querySelectorAll('.policy-type-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        const policyType = e.currentTarget.dataset.policy;
+        segmentConfirmationState.policyType = policyType;
+        
+        // Update final segment based on policy type
+        const segment = segmentConfirmationState.finalSegment.toUpperCase();
+        
+        if (segment.includes('PVT CAR') || segment.includes('PRIVATE CAR')) {
+            if (policyType === 'TP') {
+                segmentConfirmationState.finalSegment = 'PVT CAR TP';
+            } else {
+                segmentConfirmationState.finalSegment = 'PVT CAR COMP + SAOD';
+            }
+        } else if (segment.includes('TW') || segment.includes('TWO WHEELER')) {
+            if (policyType === 'TP') {
+                segmentConfirmationState.finalSegment = 'TW TP';
+            } else if (policyType === '1+5') {
+                segmentConfirmationState.finalSegment = '1+5';
+            } else {
+                segmentConfirmationState.finalSegment = 'TW SAOD + COMP';
+            }
+        }
+        
+        proceedToWizard();
+    });
+});
+
+function checkIfPolicyTypeNeeded() {
+    const segment = segmentConfirmationState.finalSegment.toUpperCase();
+    
+    const needsPolicy = 
+        (segment.includes('PVT CAR') || segment.includes('PRIVATE CAR')) && 
+        !segment.includes('TP') && !segment.includes('COMP') && !segment.includes('SAOD') ||
+        (segment.includes('TW') || segment.includes('TWO WHEELER')) &&
+        !segment.includes('TP') && !segment.includes('COMP') && !segment.includes('SAOD') && 
+        !segment.includes('1+5');
+    
+    if (needsPolicy) {
+        document.getElementById('segment-needs-policy').textContent = segmentConfirmationState.finalSegment;
+        document.getElementById('policy-type-question').classList.remove('hidden');
+    } else {
+        proceedToWizard();
+    }
+}
+
+// function proceedToWizard() {
+//     // Pre-fill the wizard form with confirmed segment
+//     document.getElementById('manual-segment').value = segmentConfirmationState.finalSegment;
+    
+//     showSheetWizard(currentSheet);
+// }
+function processBajajSheetDirectly() {
+    loadingText.textContent = `Processing sheet "${currentSheet.name}"...`;
+    showStep('loading');
+    
+    const payload = {
+        sheet_index: currentSheet.index,
+        manual_segment_raw: segmentConfirmationState.finalSegment,
+        payin_cols: 'auto', // Auto-detect all numeric columns
+        location_col: 'auto',
+        location_type: 'column',
+        policy_type_source: 'auto',
+        company_name: 'BAJAJ',
+        temp_json_id: wizardState.tempJsonId
+    };
+    
+    fetch('/process_bajaj_sheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success_sheet_processed') {
+            addResults([data.result], 'wizard-download-list');
+            wizardState.processedSheets.add(currentSheet.index);
+            showInfo(`Sheet processed: ${data.result.entry_count} entries`);
+        }
+        populateSheetList(wizardState.sheetsInfo);
+        showStep('sheet-selection');
+    })
+    .catch(err => {
+        showError(`Processing failed: ${err.message}`);
+        showStep('segment-confirmation');
+    });
+}
+
+function proceedToWizard() {
+    // Don't show wizard - process directly for Bajaj
+    processBajajSheetDirectly();
+}
+// ENDS
+
+    </script>
+</body>
+</html>

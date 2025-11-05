@@ -1,0 +1,8 @@
+flask
+pandas
+openpyxl  # Required by pandas for Excel files
+PyPDF2
+Pillow    # For PIL (Image processing)
+openai
+python-dotenv
+werkzeug

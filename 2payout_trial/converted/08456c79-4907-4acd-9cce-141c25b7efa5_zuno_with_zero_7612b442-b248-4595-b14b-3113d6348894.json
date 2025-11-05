@@ -1,0 +1,428 @@
+{
+  "source_file": "C:\\Users\\Bushra Shaikh\\Desktop\\2payout_trial\\uploads\\08456c79-4907-4acd-9cce-141c25b7efa5_zuno_with_zero.xlsx",
+  "total_sheets": 1,
+  "sheets": {
+    "BROKERS": [
+      {
+        "col_0": "IMD Code",
+        "col_1": "Product Line",
+        "col_2": "Region/RTO/Zone",
+        "col_3": "With NCB",
+        "col_4": "Logic",
+        "col_5": "Remarks",
+        "col_6": "Unnamed: 6",
+        "col_7": "Unnamed: 7"
+      },
+      {
+        "col_0": 2210001432.0,
+        "col_1": "Pvt Car Package (New/Rollover/Renewal)",
+        "col_2": "North only Delhi NCR, Chandigarh, Mohali and Panchkula, UP",
+        "col_3": 0.25,
+        "col_4": "As per system approved RTOs",
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      },
+      {
+        "col_0": 2210001432.0,
+        "col_1": NaN,
+        "col_2": "Gujarat except Surat (GJ-05)",
+        "col_3": 0.28,
+        "col_4": NaN,
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      },
+      {
+        "col_0": NaN,
+        "col_1": NaN,
+        "col_2": "Gujarat except Surat (GJ-05) SAOD ( With NCB only )",
+        "col_3": 0.25,
+        "col_4": NaN,
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      },
+      {
+        "col_0": NaN,
+        "col_1": NaN,
+        "col_2": "Gujarat Except Surat (Above 75% discount for Pvt car Comprehensive/SAOD)",
+        "col_3": 0.23,
+        "col_4": NaN,
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      },
+      {
+        "col_0": 2210001432.0,
+        "col_1": NaN,
+        "col_2": "APTS",
+        "col_3": 0.26,
+        "col_4": NaN,
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      },
+      {
+        "col_0": NaN,
+        "col_1": NaN,
+        "col_2": "Chennai only",
+        "col_3": 0.25,
+        "col_4": NaN,
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      },
+      {
+        "col_0": 2210001432.0,
+        "col_1": NaN,
+        "col_2": "Karnataka",
+        "col_3": 0.26,
+        "col_4": NaN,
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      },
+      {
+        "col_0": 2210001432.0,
+        "col_1": NaN,
+        "col_2": " Maharashtra except Aurangabad & Nasik RTOs",
+        "col_3": 0.26,
+        "col_4": NaN,
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      },
+      {
+        "col_0": 2210001432.0,
+        "col_1": NaN,
+        "col_2": "East except North East ",
+        "col_3": 0.3,
+        "col_4": NaN,
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      },
+      {
+        "col_0": NaN,
+        "col_1": NaN,
+        "col_2": "All Doable RTO'S",
+        "col_3": 0.22,
+        "col_4": "As per system approved RTOs",
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      },
+      {
+        "col_0": NaN,
+        "col_1": "TW TP Only",
+        "col_2": "Pan India",
+        "col_3": 0.2,
+        "col_4": "As per system approved RTOs",
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      },
+      {
+        "col_0": NaN,
+        "col_1": "TW NEW",
+        "col_2": "Pan India",
+        "col_3": 0.25,
+        "col_4": "As per system approved RTOs",
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      },
+      {
+        "col_0": 2210001432.0,
+        "col_1": "Pvt Car TP Only",
+        "col_2": "North  ",
+        "col_3": 0.25,
+        "col_4": "As per system approved RTOs",
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      },
+      {
+        "col_0": NaN,
+        "col_1": NaN,
+        "col_2": "South",
+        "col_3": 0.25,
+        "col_4": NaN,
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      },
+      {
+        "col_0": NaN,
+        "col_1": NaN,
+        "col_2": "West",
+        "col_3": 0.25,
+        "col_4": NaN,
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      },
+      {
+        "col_0": NaN,
+        "col_1": NaN,
+        "col_2": "East",
+        "col_3": 0.25,
+        "col_4": NaN,
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      },
+      {
+        "col_0": NaN,
+        "col_1": "Note: For OD 85% and above discount PO 19.5%, OD 90% and above discount PO 17.5% and NCB zero 15% PO will be applicable in PVT car                                                                                                                                                                                                                  ",
+        "col_2": NaN,
+        "col_3": NaN,
+        "col_4": NaN,
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      },
+      {
+        "col_0": NaN,
+        "col_1": "CV Business ",
+        "col_2": NaN,
+        "col_3": NaN,
+        "col_4": NaN,
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      },
+      {
+        "col_0": NaN,
+        "col_1": "Doable State",
+        "col_2": "3W GCV",
+        "col_3": "3 W PCV",
+        "col_4": "Upto 2.5 TP & Package ( Tata, Maruti & Mahindra )",
+        "col_5": "2.5 to 3.5 TP & package ( Tata, Maruti & Mahindra )",
+        "col_6": "Staff Bus ( TP & Package )",
+        "col_7": "Tractor With Registered Single Trailor TP & Package "
+      },
+      {
+        "col_0": NaN,
+        "col_1": "Gujrat",
+        "col_2": 35,
+        "col_3": 35,
+        "col_4": 35,
+        "col_5": 35,
+        "col_6": 20,
+        "col_7": 36
+      },
+      {
+        "col_0": NaN,
+        "col_1": "Jharkhand",
+        "col_2": 0,
+        "col_3": 0,
+        "col_4": 35,
+        "col_5": 0,
+        "col_6": 20,
+        "col_7": 36
+      },
+      {
+        "col_0": NaN,
+        "col_1": "KA",
+        "col_2": 35,
+        "col_3": 35,
+        "col_4": 0,
+        "col_5": 35,
+        "col_6": 20,
+        "col_7": 36
+      },
+      {
+        "col_0": NaN,
+        "col_1": "Mumbai",
+        "col_2": 35,
+        "col_3": 35,
+        "col_4": 35,
+        "col_5": 35,
+        "col_6": 20,
+        "col_7": 36
+      },
+      {
+        "col_0": NaN,
+        "col_1": "Maharastra",
+        "col_2": 35,
+        "col_3": 35,
+        "col_4": 35,
+        "col_5": 35,
+        "col_6": 20,
+        "col_7": 36
+      },
+      {
+        "col_0": NaN,
+        "col_1": "Punjab ( Except PB12 & PB24 )",
+        "col_2": 35,
+        "col_3": 35,
+        "col_4": 35,
+        "col_5": 35,
+        "col_6": 20,
+        "col_7": 36
+      },
+      {
+        "col_0": NaN,
+        "col_1": "UP",
+        "col_2": 35,
+        "col_3": 35,
+        "col_4": 35,
+        "col_5": 35,
+        "col_6": 0,
+        "col_7": 0
+      },
+      {
+        "col_0": NaN,
+        "col_1": "AP",
+        "col_2": 35,
+        "col_3": 35,
+        "col_4": 35,
+        "col_5": 35,
+        "col_6": 20,
+        "col_7": 36
+      },
+      {
+        "col_0": NaN,
+        "col_1": "TS",
+        "col_2": 35,
+        "col_3": 35,
+        "col_4": 35,
+        "col_5": 35,
+        "col_6": 20,
+        "col_7": 36
+      },
+      {
+        "col_0": NaN,
+        "col_1": "Odisha",
+        "col_2": 35,
+        "col_3": 35,
+        "col_4": 35,
+        "col_5": 35,
+        "col_6": 20,
+        "col_7": 36
+      },
+      {
+        "col_0": NaN,
+        "col_1": "Delhi, Gurgaon, Faridabad & Ballabhgarh",
+        "col_2": 0,
+        "col_3": 0,
+        "col_4": 35,
+        "col_5": 0,
+        "col_6": 20,
+        "col_7": 0
+      },
+      {
+        "col_0": NaN,
+        "col_1": "Chattishgarh",
+        "col_2": 0,
+        "col_3": 0,
+        "col_4": 35,
+        "col_5": 0,
+        "col_6": 20,
+        "col_7": 0
+      },
+      {
+        "col_0": NaN,
+        "col_1": "UK ( Except UK01, UK02, UK16 & UK18 )",
+        "col_2": 0,
+        "col_3": 0,
+        "col_4": 35,
+        "col_5": 35,
+        "col_6": 0,
+        "col_7": 0
+      },
+      {
+        "col_0": NaN,
+        "col_1": "J&K",
+        "col_2": 0,
+        "col_3": 0,
+        "col_4": 35,
+        "col_5": 35,
+        "col_6": 0,
+        "col_7": 0
+      },
+      {
+        "col_0": NaN,
+        "col_1": "Goa",
+        "col_2": 35,
+        "col_3": 35,
+        "col_4": 35,
+        "col_5": 0,
+        "col_6": 20,
+        "col_7": 0
+      },
+      {
+        "col_0": NaN,
+        "col_1": "Daman",
+        "col_2": 0,
+        "col_3": 0,
+        "col_4": 35,
+        "col_5": 0,
+        "col_6": 0,
+        "col_7": 0
+      },
+      {
+        "col_0": NaN,
+        "col_1": "Dadar",
+        "col_2": 0,
+        "col_3": 0,
+        "col_4": 35,
+        "col_5": 0,
+        "col_6": 0,
+        "col_7": 0
+      },
+      {
+        "col_0": NaN,
+        "col_1": "West Bengal",
+        "col_2": 35,
+        "col_3": 35,
+        "col_4": 35,
+        "col_5": 35,
+        "col_6": 20,
+        "col_7": 36
+      },
+      {
+        "col_0": NaN,
+        "col_1": "Fleet approvals 20 to 55 GVW",
+        "col_2": "Package and TP is allowed for fleets ",
+        "col_3": NaN,
+        "col_4": NaN,
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      },
+      {
+        "col_0": NaN,
+        "col_1": "Staff Bus : On Individual and Corporate name with proper permit and Valid document ",
+        "col_2": NaN,
+        "col_3": NaN,
+        "col_4": NaN,
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      },
+      {
+        "col_0": NaN,
+        "col_1": "Bolero Camper is decline",
+        "col_2": NaN,
+        "col_3": NaN,
+        "col_4": NaN,
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      },
+      {
+        "col_0": NaN,
+        "col_1": "For wrong TW sourced premium recovery will be done ",
+        "col_2": NaN,
+        "col_3": NaN,
+        "col_4": NaN,
+        "col_5": NaN,
+        "col_6": NaN,
+        "col_7": NaN
+      }
+    ]
+  }
+}

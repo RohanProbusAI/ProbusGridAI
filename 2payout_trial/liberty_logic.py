@@ -1,0 +1,1184 @@
+#FILE NAME : liberty_logic.py
+import os
+import uuid
+from pathlib import Path
+from PyPDF2 import PdfReader
+import pandas as pd
+from PIL import Image
+import base64
+from openai import OpenAI
+from dotenv import load_dotenv
+import json
+import re
+from typing import List, Dict, Optional, Tuple
+import traceback
+
+# --- Setup ---
+load_dotenv()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# ##################################################################
+# --- YOUR ORIGINAL LOGIC - UNCHANGED ---
+# ##################################################################
+
+# Embedded Formula Data (as provided)
+FORMULA_DATA = [
+    {"LOB": "TW", "SEGMENT": "1+5", "INSURER": "LIBERTY, TATA", "PO": "90% of Payin", "REMARKS": "NIL"},
+    {"LOB": "TW", "SEGMENT": "TW SAOD + COMP", "INSURER": "LIBERTY, TATA", "PO": "90% of Payin", "REMARKS": "NIL"},
+
+    # CHANGING HERE FOR TATA
+    {"LOB": "TW", "SEGMENT": "Comprehensive", "INSURER": "LIBERTY, TATA", "PO": "90% of Payin", "REMARKS": "NIL"},
+    {"LOB": "TW", "SEGMENT": "SAOD + COMP", "INSURER": "LIBERTY, TATA", "PO": "90% of Payin", "REMARKS": "NIL"},
+    {"LOB": "TW", "SEGMENT": "TW", "INSURER": "LIBERTY, TATA", "PO": "90% of Payin", "REMARKS": "NIL"},
+
+    
+    {"LOB": "TW", "SEGMENT": "TW TP", "INSURER": "LIBERTY, TATA", "PO": "-2%", "REMARKS": "Payin Below 20%"},
+    {"LOB": "TW", "SEGMENT": "TW TP", "INSURER": "LIBERTY, TATA", "PO": "-3%", "REMARKS": "Payin 21% to 30%"},
+    {"LOB": "TW", "SEGMENT": "TW TP", "INSURER": "LIBERTY, TATA", "PO": "-4%", "REMARKS": "Payin 31% to 50%"},
+    {"LOB": "TW", "SEGMENT": "TW TP", "INSURER": "LIBERTY, TATA", "PO": "-5%", "REMARKS": "Payin Above 50%"},
+    {"LOB": "PVT CAR", "SEGMENT": "PVT CAR COMP + SAOD", "INSURER": "LIBERTY, TATA", "PO": "90% of Payin", "REMARKS": "All Fuel"},
+    {"LOB": "PVT CAR", "SEGMENT": "PVT CAR TP", "INSURER": "LIBERTY, TATA", "PO": "90% of Payin", "REMARKS": "NIL"},
+    {"LOB": "CV", "SEGMENT": "All GVW", "INSURER": "TATA", "PO": "-2%", "REMARKS": "Payin Below 20%"},
+    {"LOB": "CV", "SEGMENT": "All GVW", "INSURER": "TATA", "PO": "-3%", "REMARKS": "Payin 21% to 30%"},
+    {"LOB": "CV", "SEGMENT": "All GVW", "INSURER": "TATA", "PO": "-4%", "REMARKS": "Payin 31% to 50%"},
+    {"LOB": "CV", "SEGMENT": "All GVW", "INSURER": "TATA", "PO": "-5%", "REMARKS": "Payin Above 50%"},
+    {"LOB": "CV", "SEGMENT": "Upto 2.5 GVW", "INSURER": "LIBERTY, TATA", "PO": "-2%", "REMARKS": "Payin Below 20%"},
+    {"LOB": "CV", "SEGMENT": "Upto 2.5 GVW", "INSURER": "LIBERTY, TATA", "PO": "-3%", "REMARKS": "Payin 21% to 30%"},
+    {"LOB": "CV", "SEGMENT": "Upto 2.5 GVW", "INSURER": "LIBERTY, TATA", "PO": "-4%", "REMARKS": "Payin 31% to 50%"},
+    {"LOB": "CV", "SEGMENT": "Upto 2.5 GVW", "INSURER": "LIBERTY, TATA", "PO": "-5%", "REMARKS": "Payin Above 50%"},
+    {"LOB": "CV", "SEGMENT": "PCV 3W", "INSURER": "LIBERTY, TATA", "PO": "-2%", "REMARKS": "Payin Below 20%"},
+    {"LOB": "CV", "SEGMENT": "PCV 3W", "INSURER": "LIBERTY, TATA", "PO": "-3%", "REMARKS": "Payin 21% to 30%"},
+    {"LOB": "CV", "SEGMENT": "PCV 3W", "INSURER": "LIBERTY, TATA", "PO": "-4%", "REMARKS": "Payin 31% to 50%"},
+    {"LOB": "CV", "SEGMENT": "PCV 3W", "INSURER": "LIBERTY, TATA", "PO": "-5%", "REMARKS": "Payin Above 50%"},
+    {"LOB": "CV", "SEGMENT": "GCV 3W", "INSURER": "LIBERTY, TATA", "PO": "-2%", "REMARKS": "Payin Below 20%"},
+    {"LOB": "CV", "SEGMENT": "GCV 3W", "INSURER": "LIBERTY, TATA", "PO": "-3%", "REMARKS": "Payin 21% to 30%"},
+    {"LOB": "CV", "SEGMENT": "GCV 3W", "INSURER": "LIBERTY, TATA", "PO": "-4%", "REMARKS": "Payin 31% to 50%"},
+    {"LOB": "CV", "SEGMENT": "GCV 3W", "INSURER": "LIBERTY, TATA", "PO": "-5%", "REMARKS": "Payin Above 50%"},
+    {"LOB": "CV", "SEGMENT": "All GVW, PCV 3W, GCV 3W", "INSURER": "LIBERTY, TATA", "PO": "-2%", "REMARKS": "Payin Below 20%"},
+    {"LOB": "CV", "SEGMENT": "All GVW, PCV 3W, GCV 3W", "INSURER": "LIBERTY, TATA", "PO": "-3%", "REMARKS": "Payin 21% to 30%"},
+    {"LOB": "CV", "SEGMENT": "All GVW, PCV 3W, GCV 3W", "INSURER": "LIBERTY, TATA", "PO": "-4%", "REMARKS": "Payin 31% to 50%"},
+    {"LOB": "CV", "SEGMENT": "All GVW, PCV 3W, GCV 3W", "INSURER": "LIBERTY, TATA", "PO": "-5%", "REMARKS": "Payin Above 50%"},
+    {"LOB": "CV", "SEGMENT": "All GVW & PCV 3W, GCV 3W", "INSURER": "LIBERTY, TATA", "PO": "-2%", "REMARKS": "Payin Below 20%"},
+    {"LOB": "CV", "SEGMENT": "All GVW & PCV 3W, GCV 3W", "INSURER": "LIBERTY, TATA", "PO": "-3%", "REMARKS": "Payin 21% to 30%"},
+    {"LOB": "CV", "SEGMENT": "All GVW & PCV 3W, GCV 3W", "INSURER": "LIBERTY, TATA", "PO": "-4%", "REMARKS": "Payin 31% to 50%"},
+    {"LOB": "CV", "SEGMENT": "All GVW & PCV 3W, GCV 3W", "INSURER": "LIBERTY, TATA", "PO": "-5%", "REMARKS": "Payin Above 50%"},
+    {"LOB": "BUS", "SEGMENT": "SCHOOL BUS", "INSURER": "LIBERTY, TATA", "PO": "88% of Payin", "REMARKS": "NIL"},
+    {"LOB": "BUS", "SEGMENT": "STAFF BUS", "INSURER": "LIBERTY, TATA", "PO": "88% of Payin", "REMARKS": "NIL"},
+    {"LOB": "TAXI", "SEGMENT": "TAXI", "INSURER": "LIBERTY, TATA", "PO": "-2%", "REMARKS": "Payin Below 20%"},
+    {"LOB": "TAXI", "SEGMENT": "TAXI", "INSURER": "LIBERTY, TATA", "PO": "-3%", "REMARKS": "Payin 21% to 30%"},
+    {"LOB": "TAXI", "SEGMENT": "TAXI", "INSURER": "LIBERTY, TATA", "PO": "-4%", "REMARKS": "Payin 31% to 50%"},
+    {"LOB": "TAXI", "SEGMENT": "TAXI", "INSURER": "LIBERTY, TATA", "PO": "-5%", "REMARKS": "Payin Above 50%"},
+    {"LOB": "MISD", "SEGMENT": "MISD", "INSURER": "LIBERTY, TATA", "PO": "88% of Payin", "REMARKS": "NIL"},
+    {"LOB": "MISD", "SEGMENT": "TRACTOR", "INSURER": "LIBERTY, TATA", "PO": "88% of Payin", "REMARKS": "NIL"},
+    {"LOB": "MISD", "SEGMENT": "MISC", "INSURER": "LIBERTY, TATA", "PO": "88% of Payin", "REMARKS": "NIL"},
+    {"LOB": "MISD", "SEGMENT": "Misc, Misd, Tractor", "INSURER": "LIBERTY, TATA", "PO": "88% of Payin", "REMARKS": "NIL"}
+]
+
+COMPANY_MAPPING = {
+    'icici': 'ICICI', 'reliance': 'Reliance', 'chola': 'Chola', 'sompo': 'Sompo',
+    'kotak': 'Kotak', 'magma': 'Magma', 'bajaj': 'Bajaj', 'digit': 'Digit', 
+    'liberty': 'Liberty', 'future': 'Future', 'tata': 'Tata', 'iffco': 'IFFCO', 
+    'royal': 'Royal', 'sbi': 'SBI', 'zuno': 'Zuno', 'hdfc': 'HDFC', 'shriram': 'Shriram'
+}
+
+KNOWN_LOCATIONS = [
+    'ahmedabad', 'surat', 'vadodara', 'rajkot', 'mumbai', 'pune', 'nagpur', 'thane',
+    'delhi', 'bangalore', 'bengaluru', 'chennai', 'hyderabad', 'kolkata', 'jaipur',
+    'lucknow', 'kanpur', 'patna', 'indore', 'bhopal', 'chandigarh', 'coimbatore',
+    'kochi', 'guwahati', 'bhubaneswar', 'visakhapatnam', 'goa', 'mysore', 'nashik',
+    'guj', 'gujarat', 'mh', 'maharashtra', 'apts', 'andhra pradesh', 'karnataka',
+    'tamil nadu', 'tn', 'assam', 'tripura', 'meghalaya', 'mizoram', 'west bengal',
+    'wb', 'up', 'uttar pradesh', 'mp', 'madhya pradesh', 'raj', 'rajasthan',
+    'bihar', 'jharkhand', 'kerala', 'odisha', 'chhattisgarh', 'uttarakhand',
+    'hubli', 'bhubaneshwar', 'coimbatore', 'madurai', 'tiruchirappalli', 'salem',
+    'bhubaneswar'
+]
+
+RTO_CODE_PATTERN = r'^[A-Z]{2}\d{1,2}$|^AS\d{1,2}$|^[A-Z]{2,4}\d{1,2}$'
+
+def extract_from_filename(file_path):
+    """Extract company name and location from filename intelligently"""
+    filename = str(file_path).lower()
+    base_name = Path(file_path).stem.lower()
+
+    # Try known mapping first
+    for key, value in COMPANY_MAPPING.items():
+        if key in filename:
+            return value, _extract_location(filename)
+
+    # Intelligent fallback: Look for capitalized words (likely company name)
+    words = re.findall(r'\b[a-zA-Z]{3,}\b', base_name)
+    potential_companies = [w.title() for w in words if w.title() not in {'Insurance', 'General', 'Grid', 'Payout', 'Payin', 'Excel', 'Pdf', 'Img'}]
+    if potential_companies:
+        company = potential_companies[0]
+        return company, _extract_location(filename)
+
+    # Final fallback
+    return None, _extract_location(filename)
+
+
+def _extract_location(filename):
+    """Helper to extract location from filename"""
+    location_patterns = [
+        r'\b(guj|gujarat)\b', r'\b(mh|maharashtra|mumbai)\b', 
+        r'\b(apts)\b', 
+        r'\b(dl|delhi)\b', r'\b(kar|karnataka|bangalore|bengaluru)\b',
+        r'\b(tn|tamilnadu|tamil nadu|chennai)\b', r'\b(assam)\b',
+        r'\b(tripura)\b', r'\b(meghalaya)\b', r'\b(mizoram)\b',
+        r'\b(wb|west bengal)\b', r'\b(up|uttar pradesh)\b',
+        r'\b(mp|madhya pradesh)\b', r'\b(raj|rajasthan)\b',
+        r'\b(bihar)\b', r'\b(jharkhand)\b'
+    ]
+    for pattern in location_patterns:
+        match = re.search(pattern, filename, re.IGNORECASE)
+        if match:
+            return match.group(0).upper()
+    return None
+
+
+def is_location_column(column_name: str) -> bool:
+    """Detect if a column name represents a location"""
+    col_lower = str(column_name).lower().strip()
+    
+    # Check if it matches RTO code pattern
+    if re.match(RTO_CODE_PATTERN, str(column_name).strip(), re.IGNORECASE):
+        return True
+    
+    # Check if it's a known location
+    if any(loc in col_lower for loc in KNOWN_LOCATIONS):
+        return True
+    
+    # Check common location-related terms
+    location_terms = ['location', 'city', 'state', 'region', 'rto', 'zone', 'area', 'pradesh', 'geo segment new', 'geo segment old']
+    if any(term in col_lower for term in location_terms):
+        return True
+    
+    return False
+
+
+def get_all_specific_insurers_for_lob_segment(lob: str, segment: str) -> List[str]:
+    """Collect all specific insurer names (not All/Rest) for given LOB+Segment"""
+    specific = set()
+    for rule in FORMULA_DATA:
+        if rule.get("LOB").upper() != lob.upper() or rule.get("SEGMENT").upper() != segment.upper():
+            continue
+        insurer_field = rule.get("INSURER")
+        if not insurer_field:
+            continue
+        insurers = [i.strip().upper() for i in insurer_field.split(',')]
+        for ins in insurers:
+            if ins not in ["ALL COMPANIES", "REST OF COMPANIES"]:
+                specific.add(ins)
+    return list(specific)
+
+
+def is_company_in_specific_list(company: str, specific_insurers: List[str]) -> bool:
+    """Check if company matches any in the specific insurer list"""
+    if not company:
+        return False
+    company_norm = company.upper()
+    for ins in specific_insurers:
+        if ins in company_norm or company_norm in ins:
+            return True
+        if any(word in company_norm for word in ins.split()):
+            return True
+    return False
+
+
+def calculate_payout(normalized_data):
+    company_name = normalized_data.get("COMPANY NAME", "Unknown").strip()
+    segment = normalized_data.get("SEGMENT", "Unknown").upper().strip()
+    original_segment = normalized_data.get("ORIGINAL_SEGMENT", segment)
+    policy_type = (normalized_data.get("POLICY TYPE", "") or "").upper().strip()
+    payin = normalized_data.get("PAYIN", 0)
+    location = normalized_data.get("LOCATION", "N/A")
+
+    if payin is None or payin == "":
+        return "0.00%", "Payin missing → Payout 0%"
+
+    payin_value = float(str(payin).replace('%', '').strip() or 0)
+
+    if payin_value == 0:
+        return "0.00%", "Payin is 0% → Payout 0% (no calculation applied)"
+
+    payin_category = (
+        "Payin Below 20%" if payin_value <= 20 else
+        "Payin 21% to 30%" if 21 <= payin_value <= 30 else
+        "Payin 31% to 50%" if 31 <= payin_value <= 50 else
+        "Payin Above 50%"
+    )
+
+    # Determine LOB
+    segment_norm = segment.replace(" ", "").upper()
+
+    lob = "TW"
+    if "BUS" in segment_norm or "SCHOOL" in segment_norm or "STAFF" in segment_norm:
+        lob = "BUS"
+    elif "PVT" in segment_norm or "CAR" in segment_norm:
+        lob = "PVT CAR"
+    elif "CV" in segment_norm or "GVW" in segment_norm or "PCV" in segment_norm or "GCV" in segment_norm or 'PCV Bus' in segment_norm or 'PCV School' in segment_norm:
+        lob = "CV"
+    elif "TAXI" in segment_norm:
+        lob = "TAXI"
+    elif "MISD" in segment_norm or "TRACTOR" in segment_norm or "MISC" in segment_norm:
+        lob = "MISD"
+
+    # Get policy type from segment
+    segment_policy = None
+    if "COMP" in segment or "SAOD" in segment or "TP" in segment:
+        segment_policy = next((pt for pt in ['COMP', 'SAOD', 'TP'] if pt in segment), None)
+    else:
+        segment_policy = policy_type
+
+    # Precompute specific insurers for this LOB+Segment
+    specific_insurers = get_all_specific_insurers_for_lob_segment(lob, segment)
+
+    candidate_rules = []
+    company_upper = company_name.upper()
+
+    for rule in FORMULA_DATA:
+        if rule["LOB"].upper() != lob.upper() or rule["SEGMENT"].upper() != segment.upper():
+            continue
+
+        insurers = [i.strip().upper() for i in rule["INSURER"].split(',')]
+        insurer_type = None
+        specificity = 0
+
+        # Priority 1: Specific Company Match
+        for ins in insurers:
+            if ins in ["ALL COMPANIES", "REST OF COMPANIES"]:
+                continue
+            if (ins in company_upper or company_upper in ins or
+                    any(word in company_upper for word in ins.split())):
+                insurer_type = "SPECIFIC"
+                specificity = 3
+                break
+
+        # Priority 2: Rest of Companies
+        if not insurer_type and "REST OF COMPANIES" in insurers:
+            if not is_company_in_specific_list(company_name, specific_insurers):
+                insurer_type = "REST"
+                specificity = 2
+
+        # Priority 3: All Companies
+        if not insurer_type and "ALL COMPANIES" in insurers:
+            insurer_type = "ALL"
+            specificity = 1
+
+        if not insurer_type:
+            continue
+
+        remarks = rule.get("REMARKS", "").upper().strip()
+        remarks_score = 0
+
+        if remarks == "NIL":
+            remarks_score = 10
+        elif remarks == "ALL FUEL":
+            remarks_score = 5
+        elif payin_value > 0 and remarks == payin_category.upper():
+            remarks_score = 8
+        elif payin_value > 20 and "PAYIN ABOVE 20%" in remarks:
+            remarks_score = 6
+        elif "ALL COMPANIES" in insurers and remarks in ["ALL FUEL", "NIL", ""]:
+            remarks_score = 5
+        elif "ZUNO" in insurers and "ZUNO - 21" in remarks:
+            remarks_score = 7
+        else:
+            continue
+
+        total_score = (specificity * 100) + remarks_score
+        candidate_rules.append((rule, total_score, specificity, insurer_type))
+
+    # Select best rule
+    if candidate_rules:
+        candidate_rules.sort(key=lambda x: x[1], reverse=True)
+        matched_rule = candidate_rules[0][0]
+        explanation = f"Match: LOB={lob}, Segment={segment}, Insurer={matched_rule['INSURER']}, Remarks={matched_rule.get('REMARKS', 'NIL')}, Formula={matched_rule['PO']}"
+    else:
+        matched_rule = {"PO": "90% of Payin", "INSURER": "Default", "REMARKS": "NIL"}
+        explanation = f"No Specific Match: Default Formula=90% of Payin"
+
+    if original_segment.upper() != segment.upper():
+        explanation += f"; Input Segment: {original_segment} → Matched: {segment}"
+
+    # Apply formula
+    po = matched_rule["PO"]
+    payout = payin_value
+    op_str = ""
+
+    if "flat" in po.lower():
+        flat_val = float(po.split('%')[0].strip())
+        payout = flat_val
+        op_str = f"= {payout:.2f}% (flat)"
+    elif "% of Payin" in po:
+        if "90" in po:
+            factor = 0.9
+        elif "88" in po:
+            factor = 0.88
+        elif "Less 2" in po:
+            factor = 0.98
+        else:
+            factor = 1.0
+        payout = payin_value * factor
+        op_str = f"* {factor} = {payout:.2f}%"
+    elif po.startswith("-"):
+        deduction = float(po.replace('%', ''))
+        payout = payin_value + deduction
+        op_str = f"{po} = {payout:.2f}%"
+
+    payout = max(0, payout)
+    explanation += f"; Calculated: {payin_value:.2f}% {op_str}"
+
+    return f"{payout:.2f}%", explanation
+
+
+def extract_percentage(value) -> Optional[float]:
+    if pd.isna(value) or value is None:
+        return None
+
+    value_str = str(value).strip().replace('%', '')
+
+    try:
+        num = float(value_str)
+        if 0 <= num <= 1:    # 0.18 → 18%
+            return round(num * 100, 2)
+        elif 0 <= num <= 100:  # 18 → 18%
+            return round(num, 2)
+    except:
+        pass
+
+    match = re.search(r'(\d+(?:\.\d+)?)', value_str)
+    if match:
+        num = float(match.group(1))
+        if 0 <= num <= 100:
+            return round(num, 2)
+
+    return None
+
+def normalize_segment(segment_str):
+    """Normalize segment names to standard format"""
+    
+    if not segment_str or pd.isna(segment_str):
+        return "Unknown"
+    
+    segment_lower = re.sub(r'\s+', ' ', str(segment_str).lower().strip())
+
+    # Don't normalize if it's a location
+    if segment_lower == "apts":
+        return segment_str
+    
+    if segment_lower == "Misc":
+        return "MISD"
+
+    # Bus
+    if 'school buses' in segment_lower or 'school bus' in segment_lower or 'school buses' in segment_lower:
+        return "SCHOOL BUS"
+    if 'staff bus' in segment_lower:
+        return "STAFF BUS"
+    if 'bus' in segment_lower and 'school' not in segment_lower and 'staff' not in segment_lower:
+        return "SCHOOL BUS"
+    
+    # Taxi
+    if 'taxi' in segment_lower:
+        return "TAXI"
+    
+    # 3 Wheeler
+    if any(x in segment_lower for x in ['3w', '3 w', 'three wheeler', '3wheeler']):
+        if 'pcv' in segment_lower or 'passenger' in segment_lower:
+            return "PCV 3W"
+        elif 'gcv' in segment_lower or 'goods' in segment_lower:
+            return "GCV 3W"
+        return "PCV 3W"
+    
+    # Two Wheeler
+    if any(x in segment_lower for x in ['tw', '2w', 'two wheeler', 'bike', 'scooter', 'ev', 'motor cycle', 'tw new', 'package']):
+        # added package in this for tata processing added package here
+        if 'saod' in segment_lower or 'comp' in segment_lower or 'package' in segment_lower:
+            return "TW SAOD + COMP"
+        
+        elif 'tp' in segment_lower or 'satp' in segment_lower:
+            return "TW TP"
+        elif '1+5' in segment_lower or 'grid' in segment_lower or 'new' in segment_lower or 'tw new' in segment_lower:
+            return "1+5"
+        return "TW"
+    
+    # Private Car
+    if any(x in segment_lower for x in ['pvt car', 'private car', 'car']):
+        # Priority 1: Check for explicit TP mentions (but NOT if COMP is also present)
+        if (('pvt car tp' in segment_lower or 
+            'private car tp' in segment_lower or 
+            'car tp' in segment_lower or
+            'satp' in segment_lower) and 
+            'comp' not in segment_lower and 
+            'saod' not in segment_lower):
+            return "PVT CAR TP"
+        
+        # Priority 2: Check for COMP/SAOD/Package
+        elif ('comp' in segment_lower or 
+            'saod' in segment_lower or 
+            'package' in segment_lower or
+            'pvt car comp' in segment_lower):
+            return "PVT CAR COMP + SAOD"
+        
+        # Priority 3: If only "TP" appears (without COMP/SAOD)
+        elif 'tp' in segment_lower:
+            return "PVT CAR TP"
+        
+        # Default: Assume comprehensive
+        return "PVT CAR COMP + SAOD"
+
+    # Commercial Vehicle
+    if any(x in segment_lower for x in ['cv', 'gcv', 'pcv', 'lcv', 'gvw', 'tn', 'tonnage', 'pcv bus', 'pcv school', 'pcv 4w']):
+        if 'upto 2.5' in segment_lower or '0-2.5' in segment_lower or '2.5 gvw' in segment_lower:
+            return "Upto 2.5 GVW"
+        elif 'pcv 3w' in segment_lower or 'gcv 3w' in segment_lower or 'pcv 4w non school' in segment_lower or 'pcv bus non school' in segment_lower or 'pcv bus school':
+            return "All GVW & PCV 3W, GCV 3W"
+        elif '2.5-3.5' in segment_lower:
+            return "2.5-3.5 GVW"
+        elif '3.5-12' in segment_lower:
+            return "3.5-12 GVW"
+        elif '12-45' in segment_lower:
+            if 'satp' in segment_lower or 'tp' in segment_lower:
+                return "12-45 GVW SATP"
+            return "12-45 GVW"
+        elif '>45' in segment_lower or '45t' in segment_lower:
+            return ">45 GVW"
+        return "All GVW & PCV 3W, GCV 3W"
+    
+    # Misc
+    if any(x in segment_lower for x in ['misc', 'misd', 'tractor']):
+        return "MISD"
+    
+    return segment_str
+
+
+def normalize_policy_type(policy_str):
+    """Normalize policy type - Package = Comprehensive"""
+    if not policy_str or pd.isna(policy_str):
+        return None
+    
+    policy_lower = str(policy_str).lower().strip()
+    
+    # I am editing here for TATA
+    if 'package' in policy_lower:
+        return "Comprehensive"
+    
+    if 'comp' in policy_lower and 'saod' in policy_lower:
+        return "COMP + SAOD"
+    elif 'comp' in policy_lower:
+        return "Comprehensive"
+    elif 'saod' in policy_lower or 'od' in policy_lower:
+        return "SAOD"
+    elif 'tp' in policy_lower or 'satp' in policy_lower:
+        return "TP"
+    elif 'aotp' in policy_lower:
+        return "AOTP"
+    
+    return policy_str.upper()
+
+
+def extract_text_from_sheet(sheet_data, sheet_name):
+    """Converts a list of row-dictionaries into text for the AI"""
+    text = f"Sheet Name: {sheet_name}\n"
+    for idx, row in enumerate(sheet_data, 1):
+        row_values = [str(v) for v in row.values() if v]
+        row_str = ", ".join(row_values)
+        text += f"row{idx}: {row_str}\n"
+    return text
+
+
+def excel_to_json_converter(excel_path, output_json_path):
+    """
+    Convert Excel to JSON with SMART header detection.
+    Saves to the specified output_json_path.
+    Returns the JSON data.
+    """
+    print("\n" + "="*60)
+    print("EXCEL TO JSON CONVERTER (SMART HEADER DETECTION)")
+    print("="*60)
+    
+    excel_file = pd.ExcelFile(excel_path)
+    sheet_names = excel_file.sheet_names
+    
+    print(f"\nFound {len(sheet_names)} worksheet(s):")
+    for i, sheet in enumerate(sheet_names, 1):
+        print(f"    {i}. {sheet}")
+    
+    all_sheets_data = {}
+    
+    for sheet_name in sheet_names:
+        print(f"\nProcessing sheet: '{sheet_name}'")
+        
+        # Read without header
+        df = pd.read_excel(excel_path, sheet_name=sheet_name, header=None)
+        df = df.dropna(how='all', axis=0).dropna(how='all', axis=1).reset_index(drop=True)
+        
+        print(f"    Raw shape: {df.shape}")
+        
+        # SMART: Find header row (first row with text in first 5 cols)
+        header_row_idx = 0
+        for idx, row in df.iterrows():
+            text_count = sum(1 for val in row[:min(5, len(row))] if pd.notna(val) and isinstance(val, str) and val.strip())
+            num_count = sum(1 for val in row[:min(5, len(row))] if pd.notna(val) and not isinstance(val, str))
+            if text_count >= 2 and num_count <= 1:  # Likely header
+                header_row_idx = idx
+                break
+        
+        print(f"    Detected header row: {header_row_idx}")
+        
+        # Re-read with correct header
+        df = pd.read_excel(excel_path, sheet_name=sheet_name, header=header_row_idx)
+        df = df.dropna(how='all', axis=0).dropna(how='all', axis=1).reset_index(drop=True)
+        
+        # Rename columns to col_0, col_1... but keep original names in first row of JSON
+        original_headers = df.columns.tolist()
+        df.columns = [f"col_{i}" for i in range(len(df.columns))]
+        
+        # Insert original header names as first data row
+        header_row = {f"col_{i}": str(name) for i, name in enumerate(original_headers)}
+        json_data = [header_row] + df.to_dict('records')
+        
+        all_sheets_data[sheet_name] = json_data
+        print(f"    Final records: {len(json_data)} (incl. header row)")
+    
+    output_data = {
+        "source_file": str(excel_path),
+        "total_sheets": len(sheet_names),
+        "sheets": all_sheets_data
+    }
+    
+    with open(output_json_path, 'w', encoding='utf-8') as f:
+        json.dump(output_data, f, indent=2, ensure_ascii=False)
+    
+    print(f"\nJSON file saved: {output_json_path}")
+    return output_data
+
+
+def normalize_extracted_data(extracted, file_path):
+    """Normalize extracted data from AI"""
+    normalized = {
+        "COMPANY NAME": None,
+        "ORIGINAL_SEGMENT": None,
+        "SEGMENT": None,
+        "POLICY TYPE": None,
+        "LOCATION": None,
+        "PAYIN": None,
+        "PAYOUT": "",
+        "REMARK": [],
+        "CALCULATION EXPLANATION": ""
+    }
+    
+    filename_company, filename_location = extract_from_filename(file_path)
+    normalized["COMPANY NAME"] = extracted.get("company_name") or filename_company or "Unknown"
+    
+    normalized["ORIGINAL_SEGMENT"] = extracted.get("segment")
+    
+    if normalized["ORIGINAL_SEGMENT"]:
+        normalized["SEGMENT"] = normalize_segment(normalized["ORIGINAL_SEGMENT"])
+    else:
+        normalized["SEGMENT"] = "Unknown"
+    
+    if extracted.get("policy_type"):
+        normalized["POLICY TYPE"] = normalize_policy_type(extracted["policy_type"])
+    else:
+        normalized["POLICY TYPE"] = "Comprehensive"
+    
+    # Location priority: extracted location > filename location
+    if extracted.get("location"):
+        normalized["LOCATION"] = extracted["location"]
+    elif filename_location:
+        normalized["LOCATION"] = filename_location
+    
+    if extracted.get("payin"):
+        payin_str = str(extracted["payin"])
+        payin_match = re.search(r'(\d+(?:\.\d+)?)', payin_str)
+        if payin_match:
+            normalized["PAYIN"] = float(payin_match.group(1))
+    
+    if extracted.get("other_info"):
+        other_info_str = str(extracted["other_info"]).strip()
+        if other_info_str:
+            normalized["REMARK"] = [x.strip() for x in other_info_str.split(',') if x.strip()]
+    
+    return normalized
+
+
+def extract_structured_data_single(text, file_type):
+    """Extract structured data using OpenAI with enhanced location detection"""
+    prompt = f"""You are an expert at extracting structured data from insurance payout grids. These grids can be in tabular format, lists, or descriptive text, and may have dynamic columns/rows. Your goal is to parse the entire text intelligently, identifying all entries even if the structure is irregular, merged, or pivoted.
+
+Key Guidelines:
+- Handle dynamic structures: Columns might be locations, payins, segments, or mixed. Rows might represent segments, with sub-details for policy types, ages, etc. Please note Policy or policy type is sometimes written as Section Text as header.
+- Identify company: From text or infer as 'Unknown'. Common: ICICI, Reliance, Chola, Sompo, Kotak, Magma, Bajaj, Digit, LIBERTY, TATA, Future, Tata, IFFCO, Royal, SBI, Zuno, HDFC, Shriram.
+- Segment normalization: Map to standard names like 'PVT CAR COMP + SAOD', 'TW TP', 'GCV 3W', 'SCHOOL BUS', 'MISD'. Detect from context, e.g., 'Pvt Car Package' -> 'PVT CAR COMP + SAOD'. Also please note if MISC is given then it is MISD only but just a typo, so consider MISC as MISD and process the same way.
+- Policy type: 'Package' or 'Comp' -> 'Comprehensive', 'TP' -> 'TP', 'SAOD' -> 'SAOD'. If not specified, infer from segment.
+- Location: CRITICAL - Recognize city names (Ahmedabad, Surat, Mumbai, Delhi, Bangalore, Chennai, etc.), state names (Gujarat, Maharashtra, Karnataka, etc.), and RTO codes (AS1, AS2, GJ01, MH01, etc.) as LOCATIONS even if no "location" label is present. If you see these as column headers or values, treat them as locations. Also please ignore slight spelling mistakes
+- Payin: Extract percentages or numbers (e.g., 0.25 -> 25%, 65 -> 65). Ignore non-numeric. If 0 then put 0 only there.
+- Other info/Remarks: Capture age (e.g., '>=1<=6'), fuel (e.g., 'all'), notes (e.g., 'Brand New'), logic.
+- Handle pivoted tables: If rows are segments and columns are locations with payins, create an entry per cell. Traverse the table correctly, associating each payin with the correct segment and location.
+- Handle multiple entries per row: If a row has multiple segments or policy types, split into separate objects.
+- Ignore empty/header rows. Output only valid data rows.
+- Be robust: If structure is unclear, reason step-by-step in your mind to map to fields.
+
+Example Input (pivoted):
+row1: Segment,Policy,Fuel Type,Ahmedabad,Surat,Mumbai
+row2: GCV <= 2.5,Package,all,65,60,55
+
+Example Output:
+[
+  {{"company_name": "Unknown", "segment": "GCV <= 2.5", "policy_type": "Package", "location": "Ahmedabad", "payin": "65", "other_info": "all"}},
+  {{"company_name": "Unknown", "segment": "GCV <= 2.5", "policy_type": "Package", "location": "Surat", "payin": "60", "other_info": "all"}},
+  {{"company_name": "Unknown", "segment": "GCV <= 2.5", "policy_type": "Package", "location": "Mumbai", "payin": "55", "other_info": "all"}}
+]
+
+TEXT TO ANALYZE (may be rows from Excel or OCR text):
+{text}
+
+Return ONLY a list of JSON objects, one per extracted entry. Ensure valid JSON.
+"""
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.1
+    )
+    
+    response_text = response.choices[0].message.content.strip()
+    
+    if response_text.startswith('```'):
+        response_text = re.sub(r'^```json\n|^```\n|```$', '', response_text, flags=re.MULTILINE).strip()
+    
+    try:
+        result = json.loads(response_text)
+        if not isinstance(result, list):
+            result = [result]
+    except json.JSONDecodeError as e:
+        print(f"\n⚠️ JSON Parse Error: {e} - Using fallback empty entry")
+        print(f"Problematic text: {response_text[:500]}...")
+        result = [{
+            "company_name": None,
+            "segment": None,
+            "policy_type": None,
+            "location": None,
+            "payin": None,
+            "other_info": "Extraction failed"
+        }]
+    
+    return result
+
+
+def parse_pdf_content(path):
+    """Extract text from PDF and return structured data list"""
+    reader = PdfReader(path)
+    text = ""
+    for page in reader.pages:
+        text += page.extract_text() + "\n"
+    
+    print("\n" + "="*60)
+    print("PDF FILE PARSED")
+    print("="*60)
+    
+    extracted_list = extract_structured_data_single(text, "PDF")
+    structured_data = []
+    
+    for extracted in extracted_list:
+        normalized = normalize_extracted_data(extracted, path)
+        normalized["PAYOUT"], normalized["CALCULATION EXPLANATION"] = calculate_payout(normalized)
+        structured_data.append(normalized)
+    
+    return structured_data
+
+
+def parse_image_content(path):
+    """Extract text from image using Vision API and return structured data list"""
+    with open(path, "rb") as img_file:
+        img_data = base64.b64encode(img_file.read()).decode('utf-8')
+    
+    img = Image.open(path)
+    
+    ext = Path(path).suffix.lower()
+    mime_types = {
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp'
+    }
+    mime_type = mime_types.get(ext, 'image/jpeg')
+    
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "Extract all text from this image accurately, preserving structure like tables, rows, columns as much as possible. Output in a readable text format, using markdown for tables if applicable. Provide only the extracted text."
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{mime_type};base64,{img_data}"
+                        }
+                    }
+                ]
+            }
+        ],
+        max_tokens=1500
+    )
+    
+    text = response.choices[0].message.content
+    
+    print("\n" + "="*60)
+    print("IMAGE FILE PARSED")
+    print("="*60)
+    
+    extracted_list = extract_structured_data_single(text, "Image")
+    structured_data = []
+    
+    for extracted in extracted_list:
+        normalized = normalize_extracted_data(extracted, path)
+        normalized["PAYOUT"], normalized["CALCULATION EXPLANATION"] = calculate_payout(normalized)
+        structured_data.append(normalized)
+    
+    return structured_data
+
+# ##################################################################
+# --- NEW CONTROLLER FUNCTIONS (Called by Flask app.py) ---
+# ##################################################################
+
+def _save_df_to_excel(df, base_filename, processed_dir):
+    """Helper to save a DataFrame to a unique Excel file and return info."""
+    safe_name = re.sub(r'[<>:"/\\|?*]', '_', base_filename)
+    unique_id = str(uuid.uuid4())[:8]
+    output_filename = f"{Path(safe_name).stem}_{unique_id}.xlsx"
+    output_path = os.path.join(processed_dir, output_filename)
+    
+    df.to_excel(output_path, index=False)
+    
+    print(f"Saved processed file to: {output_path}")
+    
+    return {
+        "filename": output_filename,
+        "sheet_name": Path(safe_name).stem,
+        "download_url": f"/processed/{output_filename}", # Relative URL for the frontend
+        "entry_count": len(df)
+    }
+
+def _create_output_dataframe(entries: List[Dict]) -> pd.DataFrame:
+    """Converts the list of normalized entry dicts into a DataFrame."""
+    output_data = {
+        "COMPANY NAME": [],
+        "ORIGINAL_SEGMENT": [],
+        "SEGMENT": [],
+        "POLICY TYPE": [],
+        "LOCATION": [],
+        "PAYIN": [],
+        "PAYOUT": [],
+        "REMARK": [],
+        "CALCULATION EXPLANATION": []
+    }
+    
+    for entry in entries:
+        output_data["COMPANY NAME"].append(entry.get("COMPANY NAME", ""))
+        output_data["ORIGINAL_SEGMENT"].append(entry.get("ORIGINAL_SEGMENT", ""))
+        output_data["SEGMENT"].append(entry.get("SEGMENT", ""))
+        output_data["POLICY TYPE"].append(entry.get("POLICY TYPE", ""))
+        output_data["LOCATION"].append(entry.get("LOCATION", ""))
+        output_data["PAYIN"].append(entry.get("PAYIN", ""))
+        output_data["PAYOUT"].append(entry.get("PAYOUT", ""))
+        output_data["REMARK"].append("; ".join(entry.get("REMARK", [])))
+        output_data["CALCULATION EXPLANATION"].append(entry.get("CALCULATION EXPLANATION", ""))
+    
+    return pd.DataFrame(output_data)
+
+
+def process_pdf_or_image_file(file_path: str, processed_dir: str) -> Dict:
+    """
+    Controller for PDF/Image files.
+    Parses, calculates, saves to Excel, and returns file info.
+    """
+    ext = Path(file_path).suffix.lower()
+    structured_data = []
+
+    if ext == '.pdf':
+        structured_data = parse_pdf_content(file_path)
+    elif ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp']:
+        structured_data = parse_image_content(file_path)
+    else:
+        raise ValueError(f"Unsupported file type for single processing: {ext}")
+    
+    if not structured_data:
+        return {
+            "filename": f"empty_{Path(file_path).name}.xlsx",
+            "sheet_name": Path(file_path).stem,
+            "download_url": "#",
+            "entry_count": 0
+        }
+
+    # Convert to DataFrame
+    output_df = _create_output_dataframe(structured_data)
+    
+    # Save to Excel and return info
+    return _save_df_to_excel(output_df, Path(file_path).name, processed_dir)
+
+
+def start_excel_conversion(file_path: str, converted_dir: str) -> Dict:
+    """
+    Controller for Excel/JSON files (Step 1).
+    Converts Excel to an intermediate JSON.
+    Returns the temp_json_id (filename) and sheet info.
+    """
+    ext = Path(file_path).suffix.lower()
+    
+    # Generate a unique path for the intermediate JSON
+    base_name = Path(file_path).stem
+    temp_json_id = f"{base_name}_{uuid.uuid4()}.json"
+    output_json_path = os.path.join(converted_dir, temp_json_id)
+
+    if ext in ['.xlsx', '.xls']:
+        # This function saves the JSON to output_json_path and returns the data
+        json_data = excel_to_json_converter(file_path, output_json_path)
+    
+    elif ext == '.json':
+        # If it's already a JSON, just copy it to the converted dir
+        with open(file_path, 'r', encoding='utf-8') as f:
+            json_data = json.load(f)
+        with open(output_json_path, 'w', encoding='utf-8') as f:
+            json.dump(json_data, f, indent=2, ensure_ascii=False)
+        print(f"Copied source JSON to: {output_json_path}")
+    
+    else:
+        raise ValueError(f"Unsupported file type for wizard: {ext}")
+
+    return {
+        "temp_json_id": temp_json_id,
+        "source_file": str(file_path)
+    }
+
+def get_sheet_info_from_json(json_path: str) -> List[Dict]:
+    """
+    Loads an intermediate JSON and returns sheet info for the UI.
+    """
+    if not os.path.exists(json_path):
+        raise FileNotFoundError(f"Intermediate JSON file not found: {json_path}")
+        
+    with open(json_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+        
+    sheets_info = []
+    for idx, (sheet_name, sheet_data) in enumerate(data.get("sheets", {}).items()):
+        if not sheet_data:
+            headers = []
+            record_count = 0
+        else:
+            # Extract headers from the *first* row of sheet_data
+            first_row = sheet_data[0]
+            headers = [{"key": k, "value": str(v)} for k, v in first_row.items()]
+            record_count = len(sheet_data) - 1 # Don't count header row
+            
+        sheets_info.append({
+            "index": idx, # 0-based index
+            "name": sheet_name,
+            "record_count": record_count,
+            "headers": headers
+        })
+    return sheets_info
+
+
+def process_single_excel_sheet(payload: Dict, converted_dir: str, processed_dir: str) -> Dict:
+    """
+    Controller for Excel (Step 3).
+    This re-implements your original `process_single_sheet_with_user_input`
+    using the payload from the web UI instead of `input()`.
+    """
+    
+    # --- Extract data from the UI payload ---
+    company_name = payload['company_name']
+    temp_json_id = payload['temp_json_id']
+    sheet_index_to_process = payload['sheet_index']
+    manual_lob = payload['manual_segment_raw']
+    payin_input = payload['payin_cols']
+    loc_input = payload.get('location_col') # Optional
+
+    # --- Load the intermediate JSON ---
+    json_path = os.path.join(converted_dir, temp_json_id)
+    if not os.path.exists(json_path):
+        raise FileNotFoundError(f"Intermediate JSON file not found: {json_path}")
+    
+    with open(json_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    source_file = data.get("source_file", temp_json_id)
+    
+    # --- Find the correct sheet ---
+    sheet_name = ""
+    sheet_data = []
+    try:
+        sheet_name, sheet_data = list(data["sheets"].items())[sheet_index_to_process]
+    except IndexError:
+        raise ValueError(f"Sheet index {sheet_index_to_process} out of bounds.")
+
+    if not sheet_data:
+        print(f"Skipping empty sheet: {sheet_name}")
+        return _save_df_to_excel(pd.DataFrame(), f"{company_name}_{sheet_name}", processed_dir)
+
+    print(f"Processing sheet: '{sheet_name}' for Company: '{company_name}'")
+
+    # --- This is your original logic from `process_single_sheet_with_user_input` ---
+    
+    # Define norm helper
+    norm = lambda s: re.sub(r'\s+', ' ', str(s).strip()).lower() if s is not None else ""
+    
+    first_row = sheet_data[0]
+    data_rows = sheet_data[1:]
+    header_keys = sorted(first_row.keys())
+
+    # 1. FIND PAY-IN COLUMNS
+    wanted = [p.strip() for p in payin_input.split(',') if p.strip()]
+    payin_cols = []
+    payin_headers = []
+    missing = []
+    for want in wanted:
+        found = False
+        if want.startswith('col_') and want in header_keys:
+            payin_cols.append(want)
+            payin_headers.append(str(first_row[want]).strip())
+            found = True
+        else:
+            for k, v in first_row.items():
+                if norm(v) == norm(want):
+                    payin_cols.append(k)
+                    payin_headers.append(str(v).strip())
+                    found = True
+                    break
+        if not found:
+            missing.append(want)
+
+    if not payin_cols:
+        raise ValueError(f"No pay-in columns found matching: {payin_input}")
+    if missing:
+        print(f"Warning: Could not find pay-in headers: {', '.join(missing)}")
+
+    # 2. EXPAND MERGED COLUMNS
+    expanded_payin_cols = []
+    for col in payin_cols:
+        col_idx = int(col.split('_')[1])
+        expanded_payin_cols.append(col)
+        
+        for offset in range(1, 4): # Look 3 cols to the right
+            next_col = f"col_{col_idx + offset}"
+            if next_col in header_keys and 'unnamed' in str(first_row.get(next_col, '')).lower():
+                expanded_payin_cols.append(next_col)
+            else:
+                break
+    
+    payin_cols = expanded_payin_cols
+    print(f"    Expanded pay-in columns: {', '.join(payin_cols)}")
+
+    # 3. DEFINE HEADER PARSERS (copied from your original script)
+    def extract_segment_from_header(header):
+        h = str(header).upper()
+        if 'MISD' in h or 'TRACTOR' in h: return "MISD"
+        elif 'GVW' in h or 'TON' in h or 'CV' in h: return "CV"
+        elif 'TW' in h or 'TWO WHEELER' in h: return "TW"
+        elif 'CAR' in h or 'PVT' in h: return "PVT CAR"
+        elif 'BUS' in h: return "BUS"
+        elif 'TAXI' in h: return "TAXI"
+        return None
+
+    def extract_policy_from_header(header):
+        h = str(header).upper()
+        if 'TP' in h or 'SATP' in h: return "TP"
+        elif 'COMP' in h and 'SAOD' in h: return "COMP + SAOD"
+        elif 'COMP' in h: return "COMP + SAOD"
+        elif 'SAOD' in h or 'OD' in h: return "SAOD"
+        else: return "COMP + SAOD"
+
+    # 4. MAP SEGMENTS AND POLICIES
+    payin_segment_map = {}
+    for col in payin_cols:
+        header_seg = extract_segment_from_header(first_row[col])
+        payin_segment_map[col] = normalize_segment(header_seg) if header_seg else normalize_segment(manual_lob)
+
+    # Propagate parent segment to unnamed sub-columns
+    final_segment_map = {}
+    last_known_segment = None
+    for col in payin_cols:
+        if 'unnamed' not in str(first_row[col]).lower():
+            last_known_segment = payin_segment_map[col]
+            final_segment_map[col] = last_known_segment
+        else:
+            final_segment_map[col] = last_known_segment if last_known_segment else payin_segment_map[col]
+    payin_segment_map = final_segment_map
+    
+    payin_policy_map = {col: extract_policy_from_header(first_row[col]) for col in payin_cols}
+
+    # 5. FIND LOCATION COLUMN
+    # 5. FIND LOCATION COLUMN OR ROW
+    # 5.5 FIND POLICY TYPE COLUMN (if specified)
+    policy_type_source = payload.get('policy_type_source', 'auto')
+    policy_col = None
+
+    if policy_type_source == 'column':
+        policy_input = payload.get('policy_col')
+        if policy_input:
+            if policy_input.startswith('col_') and policy_input in header_keys:
+                policy_col = policy_input
+            else:
+                for k, v in first_row.items():
+                    if norm(v) == norm(policy_input):
+                        policy_col = k
+                        break
+        print(f"    Policy type column: {policy_col}")
+
+
+    location_type = payload.get('location_type', 'column')
+    location_col = None
+    location_row_values = []
+
+    if location_type == 'column':
+        loc_input = payload.get('location_col')
+        if loc_input:
+            if loc_input.startswith('col_') and loc_input in header_keys:
+                location_col = loc_input
+            else:
+                for k, v in first_row.items():
+                    if norm(v) == norm(loc_input):
+                        location_col = k
+                        break
+        print(f"    Location column: {location_col}")
+    elif location_type == 'row':
+        row_idx = payload.get('location_row')
+        if row_idx is not None:
+            row_idx = int(row_idx)
+            # Extract location values from the specified header row
+            location_row_values = [str(first_row.get(f'col_{i}', '')).strip() 
+                                for i in range(len(header_keys))]
+            # Filter out empty/unnamed values
+            location_row_values = [v for v in location_row_values 
+                                if v and v.lower() != 'unnamed' and v not in {'-', ''}]
+            print(f"    Location row values: {location_row_values}")
+
+    # 6. EXTRACT WITH FILL-DOWN
+    # 6. EXTRACT WITH FILL-DOWN OR ROW-BASED LOCATIONS
+    entries = []
+    last_location = None
+
+    if location_type == 'column':
+        # Original column-based logic
+        for row_idx, row in enumerate(data_rows, start=1):
+            if all(v is None or str(v).strip() == "" for v in row.values()):
+                continue
+
+            current_location = None
+            if location_col:
+                val = row.get(location_col)
+                if val and str(val).strip() and str(val).strip() not in {'-', ''}:
+                    current_location = str(val).strip()
+                    last_location = current_location
+                else:
+                    current_location = last_location
+            loc_value = current_location or "N/A"
+
+            # ** NEW: Get policy type from column if specified **
+            row_policy_type = None
+            if policy_col:
+                policy_val = row.get(policy_col)
+                if policy_val and str(policy_val).strip():
+                    row_policy_type = normalize_policy_type(str(policy_val).strip())
+
+            for payin_col in payin_cols:
+                raw = row.get(payin_col)
+                if raw is None or str(raw).strip() in {'', '-'}:
+                    continue
+                payin = extract_percentage(raw)
+                if payin is None:
+                    continue
+
+                # ** NEW: Use row policy if available, otherwise use column header policy **
+                final_policy = row_policy_type if row_policy_type else payin_policy_map[payin_col]
+
+                entries.append({
+                    "segment": payin_segment_map[payin_col],
+                    "policy_type": final_policy,  # ** CHANGED: was payin_policy_map[payin_col] **
+                    "location": loc_value,
+                    "payin": payin
+                })
+
+    elif location_type == 'row':
+        # Row-based: locations are in header row, map to payin columns
+        payin_location_map = {}
+        for col in payin_cols:
+            col_idx = int(col.split('_')[1])
+            if col_idx < len(location_row_values):
+                payin_location_map[col] = location_row_values[col_idx]
+            else:
+                payin_location_map[col] = "N/A"
+        
+        print(f"    Payin-Location mapping: {payin_location_map}")
+
+        for row_idx, row in enumerate(data_rows, start=1):
+            if all(v is None or str(v).strip() == "" for v in row.values()):
+                continue
+
+            # ** NEW: Get policy type from column if specified **
+            row_policy_type = None
+            if policy_col:
+                policy_val = row.get(policy_col)
+                if policy_val and str(policy_val).strip():
+                    row_policy_type = normalize_policy_type(str(policy_val).strip())
+
+            for payin_col in payin_cols:
+                raw = row.get(payin_col)
+                if raw is None or str(raw).strip() in {'', '-'}:
+                    continue
+                payin = extract_percentage(raw)
+                if payin is None:
+                    continue
+
+                # ** NEW: Use row policy if available, otherwise use column header policy **
+                final_policy = row_policy_type if row_policy_type else payin_policy_map[payin_col]
+
+                entries.append({
+                    "segment": payin_segment_map[payin_col],
+                    "policy_type": final_policy,  # ** CHANGED: was payin_policy_map[payin_col] **
+                    "location": payin_location_map.get(payin_col, "N/A"),
+                    "payin": payin
+                })
+    print(f"    Extracted {len(entries)} raw entries")
+
+    # 7. NORMALIZE + PAYOUT
+    sheet_entries = []
+    _, filename_location = extract_from_filename(source_file)
+
+    for item in entries:
+        loc = item["location"] if item["location"] != "N/A" else (filename_location or "N/A")
+        normalized = {
+            "COMPANY NAME": company_name,
+            "ORIGINAL_SEGMENT": manual_lob, # Use LOB input as original
+            "SEGMENT": item["segment"],     # Use column-specific segment
+            "POLICY TYPE": normalize_policy_type(item["policy_type"]),
+            "LOCATION": loc,
+            "PAYIN": item["payin"],
+            "REMARK": ["Geo Segment New Present"] if 'geo segment new' in sheet_name.lower() else [],
+            "CALCULATION EXPLANATION": ""
+        }
+        payout, explanation = calculate_payout(normalized)
+        normalized["PAYOUT"] = payout
+        normalized["CALCULATION EXPLANATION"] = explanation
+        sheet_entries.append(normalized)
+
+    print(f"    Final processed entries: {len(sheet_entries)}")
+
+    # 8. SAVE INDIVIDUAL SHEET OUTPUT
+    if not sheet_entries:
+        output_df = pd.DataFrame(columns=[
+            "COMPANY NAME","ORIGINAL_SEGMENT","SEGMENT","POLICY TYPE",
+            "LOCATION","PAYIN","PAYOUT","REMARK","CALCULATION EXPLANATION"
+        ])
+    else:
+        output_df = _create_output_dataframe(sheet_entries)
+    
+    # Save to Excel and return info
+    return _save_df_to_excel(output_df, f"{company_name}_{sheet_name}", processed_dir)
