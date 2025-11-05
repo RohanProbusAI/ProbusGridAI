@@ -1,4 +1,4 @@
-
+#BAJAJ
 # import os
 # from pathlib import Path
 # from PyPDF2 import PdfReader
@@ -629,4 +629,5 @@
 #                         if remarks_str:
 #                             print(f"            Remarks: {remarks_str}")
 #         else:
+
 #             print("\n⚠️ No entries extracted")
