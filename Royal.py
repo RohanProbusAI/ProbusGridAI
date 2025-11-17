@@ -1,5 +1,3 @@
-
-
 import os
 from pathlib import Path
 from PyPDF2 import PdfReader
@@ -253,7 +251,6 @@ def parse_royal_column_header(header_text: str) -> Dict:
     return result
 
 
-
 def detect_royal_structure(sheet_data, sheet_name) -> Dict:
     """
     Enhanced Royal structure detection with better range recognition
@@ -359,11 +356,81 @@ def detect_royal_structure(sheet_data, sheet_name) -> Dict:
     return structure
 
 
+def is_header_row(row, state_col, rto_col):
+    """
+    Check if a row is a header row (column names repeating in the middle of data)
+    """
+    if not row:
+        return False
+    
+    # Check if state column contains "state" keyword
+    state_val = row.get(state_col) if state_col else None
+    if state_val and str(state_val).lower().strip() in ['state', 'states']:
+        return True
+    
+    # Check if RTO column contains "rto" or "division" keywords
+    rto_val = row.get(rto_col) if rto_col else None
+    if rto_val:
+        rto_val_lower = str(rto_val).lower().strip()
+        if 'rto' in rto_val_lower and 'division' in rto_val_lower:
+            return True
+    
+    # Check if multiple cells contain header-like terms
+    header_keywords = ['state', 'rto', 'division', 'location', 'segment', 'payin', 'payout']
+    header_count = 0
+    for val in row.values():
+        if val:
+            val_lower = str(val).lower().strip()
+            if any(keyword in val_lower for keyword in header_keywords):
+                header_count += 1
+    
+    # If 3 or more cells contain header keywords, it's likely a header row
+    if header_count >= 3:
+        return True
+    
+    return False
+
+
+def is_header_row_generic(row, segment_col, policy_col):
+    """
+    Check if a row is a header row for generic pivoted tables
+    """
+    if not row:
+        return False
+    
+    # Check if segment column contains "segment" keyword
+    segment_val = row.get(segment_col) if segment_col else None
+    if segment_val:
+        segment_val_lower = str(segment_val).lower().strip()
+        if segment_val_lower in ['segment', 'segments', 'product', 'product line']:
+            return True
+    
+    # Check if policy column contains "policy" keyword
+    policy_val = row.get(policy_col) if policy_col else None
+    if policy_val:
+        policy_val_lower = str(policy_val).lower().strip()
+        if 'policy' in policy_val_lower and 'type' in policy_val_lower:
+            return True
+    
+    # Check if multiple cells contain header-like terms
+    header_keywords = ['segment', 'policy', 'location', 'payin', 'payout', 'fuel', 'age']
+    header_count = 0
+    for val in row.values():
+        if val:
+            val_lower = str(val).lower().strip()
+            if any(keyword in val_lower for keyword in header_keywords):
+                header_count += 1
+    
+    # If 3 or more cells contain header keywords, it's likely a header row
+    if header_count >= 3:
+        return True
+    
+    return False
 
 
 def restructure_royal_data(sheet_data, structure, sheet_name):
     """
-    Enhanced restructuring with better range detection
+    Enhanced restructuring with better range detection and header row detection
     """
     print(f"\n📊 Restructuring Royal data for sheet: {sheet_name}")
     
@@ -373,6 +440,15 @@ def restructure_royal_data(sheet_data, structure, sheet_name):
     segment_columns = structure['segment_columns']
     data_start_index = structure['data_start_index']
     base_segment = structure['detected_segment']
+    
+    # Validate essential columns
+    if not state_col and not rto_col:
+        print(f"   ⚠️  Warning: No state or RTO column found. Skipping sheet.")
+        return []
+    
+    if not segment_columns:
+        print(f"   ⚠️  Warning: No segment columns found. Skipping sheet.")
+        return []
     
     if not base_segment:
         print(f"\n⚠️  Could not auto-detect segment from sheet name: '{sheet_name}'")
@@ -388,11 +464,19 @@ def restructure_royal_data(sheet_data, structure, sheet_name):
             base_segment = "All GVW & PCV 3W, GCV 3W"
     
     last_state = None
+    skipped_header_rows = 0
     
     for i in range(data_start_index, len(sheet_data)):
         row = sheet_data[i]
         
+        # Skip empty rows
         if all(v is None or str(v).strip() == "" for v in row.values()):
+            continue
+        
+        # Skip header rows that appear in the middle of data (continuation headers)
+        if is_header_row(row, state_col, rto_col):
+            skipped_header_rows += 1
+            print(f"   ⚠️  Skipping continuation header at row {i + 1}")
             continue
         
         current_state = row.get(state_col) if state_col else None
@@ -448,103 +532,16 @@ def restructure_royal_data(sheet_data, structure, sheet_name):
                 'segment'     : segment,
                 'policy_type' : header_info['policy_type'],
                 'location'    : location,
-                'payin'       : payin_str,           # <-- Keeps NA, -, NIL, etc.
+                'payin'       : payin_str,
                 'other_info'  : header_info['conditions']
             }
             
             restructured_data.append(entry)
     
+    if skipped_header_rows > 0:
+        print(f"   ⚠️  Skipped {skipped_header_rows} continuation header row(s)")
     print(f"   ✓ Created {len(restructured_data)} entries")
     return restructured_data
-
-
-# def normalize_segment(segment_str):
-#     """Normalize segment names to standard format"""
-#     if not segment_str or pd.isna(segment_str):
-#         return "Unknown"
-    
-#     segment_lower = re.sub(r'\s+', ' ', str(segment_str).lower().strip())
-
-#     if segment_lower == "apts":
-#         return segment_str
-    
-#     if segment_lower == "misc":
-#         return "MISD"
-
-#     # Bus
-#     if 'school buses' in segment_lower or 'school bus' in segment_lower:
-#         return "SCHOOL BUS"
-#     if 'staff bus' in segment_lower:
-#         return "STAFF BUS"
-#     if 'bus' in segment_lower and 'school' not in segment_lower and 'staff' not in segment_lower:
-#         return "SCHOOL BUS"
-    
-#     # Taxi
-#     if 'taxi' in segment_lower:
-#         return "TAXI"
-    
-#     # 3 Wheeler
-#     if any(x in segment_lower for x in ['3w', '3 w', 'three wheeler', '3wheeler']):
-#         if 'pcv' in segment_lower or 'passenger' in segment_lower:
-#             return "PCV 3W"
-#         elif 'gcv' in segment_lower or 'goods' in segment_lower:
-#             return "GCV 3W"
-#         return "PCV 3W"
-    
-#     # Two Wheeler
-#     if any(x in segment_lower for x in ['tw', '2w', 'two wheeler', 'bike', 'scooter', 'ev', 'motor cycle', 'tw new']):
-#         if 'saod' in segment_lower or 'comp' in segment_lower:
-#             return "TW SAOD + COMP"
-#         elif 'tp' in segment_lower or 'satp' in segment_lower:
-#             return "TW TP"
-#         elif '1+5' in segment_lower or 'grid' in segment_lower or 'new' in segment_lower:
-#             return "1+5"
-#         return "TW"
-    
-#     # Private Car
-#     if any(x in segment_lower for x in ['pvt car', 'private car', 'car', 'pvt car tp']):
-#         if 'pvt car satp' in segment_lower:
-#             return 'PVT CAR TP'
-#         elif 'comp' in segment_lower or 'saod' in segment_lower or 'package' in segment_lower:
-#             return "PVT CAR COMP + SAOD"
-#         elif 'tp' in segment_lower:
-#             return "PVT CAR TP"
-#         return "PVT CAR COMP + SAOD"
-
-#     # Commercial Vehicle with weight ranges
-#     if any(x in segment_lower for x in ['cv', 'gcv', 'pcv', 'lcv', 'gvw', 'tn', 'tonnage', 'pcv bus', 'pcv school', 'pcv 4w']):
-#         # Check for specific weight ranges first
-#         if 'upto 2.5' in segment_lower or '0-2.5' in segment_lower or '2.5 gvw' in segment_lower or '0 to 2' in segment_lower:
-#             return "Upto 2.5 GVW"
-#         elif '2.5-3.5' in segment_lower or '2 to 3.5' in segment_lower:
-#             return "2.5-3.5 GVW"
-#         elif '3.5-7.5' in segment_lower or '3.5 to 7.5' in segment_lower:
-#             return "3.5-7.5 GVW"
-#         elif '7.5-12' in segment_lower or '7.5 to 12' in segment_lower:
-#             return "7.5-12 GVW"
-#         elif '12-20' in segment_lower or '12 to 20' in segment_lower:
-#             return "12-20 GVW"
-#         elif '20-40' in segment_lower or '20 to 40' in segment_lower:
-#             return "20-40 GVW"
-#         elif '40-45' in segment_lower or '40 to 45' in segment_lower:
-#             return "40-45 GVW"
-#         elif '>45' in segment_lower or 'above 45' in segment_lower or '45t' in segment_lower:
-#             return ">45 GVW"
-#         elif '3.5-12' in segment_lower:
-#             return "3.5-12 GVW"
-#         elif '12-45' in segment_lower:
-#             if 'satp' in segment_lower or 'tp' in segment_lower:
-#                 return "12-45 GVW SATP"
-#             return "12-45 GVW"
-#         elif 'pcv 3w' in segment_lower or 'gcv 3w' in segment_lower:
-#             return "All GVW & PCV 3W, GCV 3W"
-#         return "All GVW & PCV 3W, GCV 3W"
-    
-#     # Misc
-#     if any(x in segment_lower for x in ['misc', 'misd', 'tractor']):
-#         return "MISD"
-    
-#     return segment_str
 
 
 def normalize_segment(segment_str):
@@ -853,9 +850,6 @@ def calculate_payout(normalized_data):
     return f"{payout:.2f}%", explanation
 
 
-
-
-
 def extract_weight_range_from_header(header_text: str) -> Optional[str]:
     """
     Extract standardized weight range from column header
@@ -1018,6 +1012,15 @@ def restructure_pivoted_data(sheet_data, structure_info, sheet_name):
     
     restructured_data = []
     
+    # Validate essential columns
+    if not location_cols:
+        print(f"   ⚠️  Warning: No location columns found. Skipping restructure.")
+        return []
+    
+    if not segment_col:
+        print(f"   ⚠️  Warning: No segment column found. Skipping restructure.")
+        return []
+    
     location_names = {}
     if structure_info['header_row_index'] >= 0:
         header_row = sheet_data[structure_info['header_row_index']]
@@ -1031,11 +1034,17 @@ def restructure_pivoted_data(sheet_data, structure_info, sheet_name):
     last_policy = None
     last_fuel = None
     last_vehicle_age = None
+    skipped_header_rows = 0
     
     for i in range(data_start_index, len(sheet_data)):
         row = sheet_data[i]
         
         if all(v is None or str(v).strip() == "" for v in row.values()):
+            continue
+        
+        # Skip continuation header rows
+        if is_header_row_generic(row, segment_col, policy_col):
+            skipped_header_rows += 1
             continue
         
         current_segment = row.get(segment_col) if segment_col else None
@@ -1092,6 +1101,9 @@ def restructure_pivoted_data(sheet_data, structure_info, sheet_name):
             entry['other_info'] = ', '.join(entry['other_info']) if entry['other_info'] else None
             
             restructured_data.append(entry)
+    
+    if skipped_header_rows > 0:
+        print(f"   ⚠️  Skipped {skipped_header_rows} continuation header row(s)")
     
     return restructured_data
 
